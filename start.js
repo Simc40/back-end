@@ -3,14 +3,16 @@ const path = require('path');                           //Import the path depend
 const PORT = process.env.PORT || 3000;                  //Save the port number where your server will be listening
 
 var firebase = require("firebase/app");
+const realtime_database = require("firebase/database")
 const firebaseAuth = require("firebase/auth");
+var database;
 
 //Crypto for generatin Random UUIDs
 const crypto = require('crypto');
 //const uuid = crypto.randomUUID();
 
 // Initialize Firebase Configurations
-firebase.initializeApp({
+const config = firebase.initializeApp({
   apiKey: "AIzaSyAHcRmpf7I92tzxMsq72pwqK3n5BwB9Klg",
   authDomain: "simc-iot.firebaseapp.com",
   databaseURL: "https://simc-iot-default-rtdb.firebaseio.com",
@@ -35,6 +37,7 @@ const cookieParser = require("cookie-parser");
 const sessions = require('express-session');
 
 const cors = require('cors');
+const { getDatabase, ref, onValue } = require('firebase/database');
 const corsOptions ={
     origin:'http://localhost:8000', 
     credentials:true,                     //access-control-allow-credentials:true
@@ -85,9 +88,21 @@ app.get('/login', (req, res) => {
     });
 });
 
-app.get('/test', (req, res) => {
-  
-  
+database = getDatabase(config);
+
+app.get('/clientes', (req, res) => {
+  console.log("starting realtime-database")
+  let reference = realtime_database.ref(database);
+  //console.log(reference);
+  realtime_database.get(realtime_database.child(reference, `clientes`)).then((snapshot) => {
+    if (snapshot.exists()) {
+      res.send(snapshot.val())
+    }else{
+      console.log("Não existe o dado")
+    }
+  }).catch((error) => {
+    console.error(error);
+  });
 });
 
 //server starts listening for any attempts from a client to connect at port: {port}
