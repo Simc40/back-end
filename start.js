@@ -7,6 +7,14 @@ const realtime_database = require("firebase/database")
 const firebaseAuth = require("firebase/auth");
 var database;
 
+const https = require('https');
+const fs = require('fs');
+
+const options = {
+  key: fs.readFileSync('key.pem'),
+  cert: fs.readFileSync('cert.pem')
+};
+
 //Crypto for generatin Random UUIDs
 const crypto = require('crypto');
 //const uuid = crypto.randomUUID();
@@ -26,7 +34,7 @@ const config = firebase.initializeApp({
 const session_key = '0f0c9ee8-efb3-4637-89f6-9f3e0490f108'; // Session Key
 const oneDay = 1000 * 60 * 60 * 24;                         // creating 24 hours from milliseconds
 let sessions_map = new Map();                               // HashMap for storing values
-const auth = firebaseAuth.getAuth();                        // Constant for using Firebase Authentincation Functions
+var auth = firebaseAuth.getAuth();                          // Constant for using Firebase Authentincation Functions
 
 let app = express();                                        //Instantiate an express app, the main work horse of this server
 app.use(express.static(path.join(__dirname, 'public')));
@@ -45,14 +53,14 @@ const corsOptions ={
 }
 app.use(cors(corsOptions));
 
-app.use(cookieParser());
 
 //session middleware
 app.use(sessions({
+  name: "back_end",
   secret: session_key,
   saveUninitialized:true,
-  cookie: { maxAge: oneDay },
-  resave: false
+  cookie: { maxAge: oneDay, sameSite: 'none', secure: true},
+  resave: false,
 }));
 
 app.use((err, req, res, next) => {
@@ -62,9 +70,21 @@ app.use((err, req, res, next) => {
 
 app.get('/', (req, res) => {
     res.send({"result": "Server Online"});
+    console.log("/")
+    console.log(req.sessionID)
+});
+
+auth.onAuthStateChanged(user =>{
+  console.log("onAuthStateChanged")
+  if(user != null){
+    console.log(user.email);
+    console.log(user.displayName);
+    console.log(user.uid)
+  }
 });
 
 app.get('/login', (req, res) => {
+    console.log("login")
     let email = req.query.email;
     let password = req.query.password;
     let session = req.query.session;
@@ -74,7 +94,7 @@ app.get('/login', (req, res) => {
       let req_session_ID = req.sessionID;
       let user = {username: email, password: password};
       if(!sessions_map.has(req_session_ID)){
-        sessions_map.set(req_session_ID, user);
+        sessions_map.set(req_session_ID, auth);
       }
       res.send(userCredential.user)
     })
@@ -88,17 +108,30 @@ app.get('/login', (req, res) => {
     });
 });
 
+app.get('/logout', (req, res) => {
+
+  /*firebaseAuth.signOut(auth).then((userCredential) =>{
+    console.log("logout");
+    console.log(userCredential);
+  }).catch((error) => {
+    console.log(error);
+  })
+  res.send(logout)*/
+  //console.log(sessions_map);
+  console.log(req.session.id)
+  res.send("Logout")
+});
+
 database = getDatabase(config);
 
 app.get('/clientes', (req, res) => {
-  console.log("starting realtime-database")
   let reference = realtime_database.ref(database);
   //console.log(reference);
   realtime_database.get(realtime_database.child(reference, `clientes`)).then((snapshot) => {
     if (snapshot.exists()) {
       res.send(snapshot.val())
     }else{
-      console.log("Não existe o dado")
+      console.log("O dado referido não existe")
     }
   }).catch((error) => {
     console.error(error);
@@ -106,4 +139,4 @@ app.get('/clientes', (req, res) => {
 });
 
 //server starts listening for any attempts from a client to connect at port: {port}
-app.listen(PORT, () => { console.log(`Server listening on port ${PORT}`); });          
+https.createServer(options, app).listen(PORT, () => { console.log(`Server listening on port ${PORT}`); });          
