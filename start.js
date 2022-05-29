@@ -2,6 +2,17 @@ const express = require('express');                     //Import the express dep
 const path = require('path');                           //Import the path dependency
 const PORT = process.env.PORT || 3000;                  //Save the port number where your server will be listening
 
+var admin = require("firebase-admin");
+var serviceAccount = require("./simc-iot-firebase-adminsdk-bopry-589a1f03a8.json");
+
+var defaultApp = admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://simc-iot-default-rtdb.firebaseio.com"
+});
+
+const db = defaultApp.database();
+
+
 var firebase = require("firebase/app");
 const realtime_database = require("firebase/database")
 const firebaseAuth = require("firebase/auth");
@@ -19,8 +30,10 @@ const options = {
 const crypto = require('crypto');
 //const uuid = crypto.randomUUID();
 
+
 // Initialize Firebase Configurations
-const config = firebase.initializeApp({
+
+const keys = {
   apiKey: "AIzaSyAHcRmpf7I92tzxMsq72pwqK3n5BwB9Klg",
   authDomain: "simc-iot.firebaseapp.com",
   databaseURL: "https://simc-iot-default-rtdb.firebaseio.com",
@@ -29,7 +42,9 @@ const config = firebase.initializeApp({
   messagingSenderId: "558911081308",
   appId: "1:558911081308:web:114d4ea9adc511a22a4f99",
   measurementId: "G-KBP29SP75M"
-});
+}
+
+let config = firebase.initializeApp(keys);
 
 const session_key = '0f0c9ee8-efb3-4637-89f6-9f3e0490f108'; // Session Key
 const oneDay = 1000 * 60 * 60 * 24;                         // creating 24 hours from milliseconds
@@ -46,8 +61,9 @@ const sessions = require('express-session');
 
 const cors = require('cors');
 const { getDatabase, ref, onValue } = require('firebase/database');
+const { response } = require('express');
 const corsOptions ={
-    origin:'http://localhost:8000', 
+    origin:'https://localhost:8000', 
     credentials:true,                     //access-control-allow-credentials:true
     optionSuccessStatus:200
 }
@@ -69,34 +85,45 @@ app.use((err, req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-    res.send({"result": "Server Online"});
     console.log("/")
     console.log(req.sessionID)
+    res.send({"result": "Server Online"});
 });
 
-auth.onAuthStateChanged(user =>{
-  console.log("onAuthStateChanged")
-  if(user != null){
-    console.log(user.email);
-    console.log(user.displayName);
-    console.log(user.uid)
-  }
+
+app.get('/loginstate', (req, res) => {
+  console.log(req.sessionID)
+  res.send("loginstate")
 });
 
 app.get('/login', (req, res) => {
-    console.log("login")
     let email = req.query.email;
     let password = req.query.password;
-    let session = req.query.session;
+    console.log("login")
+    console.log(req.sessionID)
     firebaseAuth.signInWithEmailAndPassword(auth, email, password)
     .then((userCredential) => {
       // Signed in
-      let req_session_ID = req.sessionID;
-      let user = {username: email, password: password};
-      if(!sessions_map.has(req_session_ID)){
-        sessions_map.set(req_session_ID, auth);
-      }
-      res.send(userCredential.user)
+      let uid = userCredential.user.uid
+      let ref = db.ref(`usuarios/${uid}/cliente`);
+
+      ref.once('value').then(function (snapshot){
+        return snapshot.val()
+      }, (errorObject) => {
+        res.send('The read failed: ' + errorObject.name);
+      }).then(function(cliente_uid){
+
+        let ref = db.ref(`clientes/${cliente_uid}/database`);
+        ref.once('value').then(function (snapshot){
+          return snapshot.val()
+        }, (errorObject) => {
+          res.send('The read failed: ' + errorObject.name);
+        }).then(function(database_cliente){
+          save_session(req.sessionID, {"uid": uid, "database":database_cliente})
+          res.send(userCredential.user)
+        })
+
+      })
     })
     .catch((error) => {
         console.log("Firebase Login Error:")
@@ -108,26 +135,105 @@ app.get('/login', (req, res) => {
     });
 });
 
-app.get('/logout', (req, res) => {
+function save_session(sessionID, user){
+  if(!sessions_map.has(sessionID)){
+    sessions_map.set(sessionID, user);
+  }
+}
 
-  /*firebaseAuth.signOut(auth).then((userCredential) =>{
-    console.log("logout");
-    console.log(userCredential);
-  }).catch((error) => {
-    console.log(error);
-  })
-  res.send(logout)*/
-  //console.log(sessions_map);
-  console.log(req.session.id)
+app.get('/set-cliente', (req, res) => {
+  console.log("set-cliente")
+  let uid_cliente = req.query.clienteuid;
+  let database_cliente = req.query.database;
+  let user_uid = get_user_session_uid(req.sessionID)
+  if(user_uid == undefined || uid_cliente == undefined){
+    res.send("error")
+    return
+  }
+  const ref = db.ref(`usuarios/${user_uid}`);
+  ref.update({
+    'cliente': uid_cliente
+  }, (error =>{
+    if(error){
+      res.send("error")
+    }else{
+      sessions_map.set(req.sessionID, {"uid": user_uid, "database":database_cliente})
+      res.send("successful")
+    }
+  }))
+});
+
+function get_user_session_uid(sessionID){
+  if(!sessions_map.has(sessionID)){
+    return undefined
+  }else{
+    return(sessions_map.get(sessionID).uid)
+  }
+}
+
+
+
+app.get('/check-session', (req, res) => {
+  console.log("check-session")
+  console.log(req.sessionID)
+  if(!sessions_map.has(req.sessionID)){
+    res.send("not logged")
+  }else{
+    res.send("logged")
+  }
+});
+
+app.get('/logout', (req, res) => {
+  sessions_map.delete(req.sessionID)
   res.send("Logout")
 });
 
-database = getDatabase(config);
+//database = getDatabase(config);
 
 app.get('/clientes', (req, res) => {
-  let reference = realtime_database.ref(database);
+    const ref = db.ref('clientes');
+    ref.on('value', (snapshot) => {
+      res.send(snapshot.val());
+    }, (errorObject) => {
+      console.log('The read failed: ' + errorObject.name);
+    }); 
+});
+
+
+
+/*const ref = db.ref('clientes');
+ref.on('value', function(snapshot){
+  snapshot.forEach(function(child_snapshot){
+    var key = child_snapshot.key
+    var value = child_snapshot.val()
+    console.log(key,value)
+  })
+}, (errorObject) => {
+  console.log('The read failed: ' + errorObject.name);
+});*/
+
+app.get('/usuarios', (req, res) => {
+    const ref = db.ref('usuarios');
+    ref.on('value', (snapshot) => {
+      res.send(snapshot.val());
+    }, (errorObject) => {
+      console.log('The read failed: ' + errorObject.name);
+    }); 
+});
+
+app.get('/acessos', (req, res) => {
+  const ref = db.ref('tipos_acesso');
+    ref.on('value', (snapshot) => {
+      res.send(snapshot.val());
+    }, (errorObject) => {
+      console.log('The read failed: ' + errorObject.name);
+    }); 
+});
+
+app.get('/obras', (req, res) => {
+  let reference = realtime_database.ref(database, "")
   //console.log(reference);
-  realtime_database.get(realtime_database.child(reference, `clientes`)).then((snapshot) => {
+  realtime_database.get(realtime_database.child(reference, `obras`)).then((snapshot) => {
     if (snapshot.exists()) {
       res.send(snapshot.val())
     }else{
