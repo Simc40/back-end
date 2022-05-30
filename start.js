@@ -63,7 +63,7 @@ const cors = require('cors');
 const { getDatabase, ref, onValue } = require('firebase/database');
 const { response } = require('express');
 const corsOptions ={
-    origin:'https://localhost:8000', 
+    origin:'http://localhost:8000', 
     credentials:true,                     //access-control-allow-credentials:true
     optionSuccessStatus:200
 }
@@ -75,7 +75,7 @@ app.use(sessions({
   name: "back_end",
   secret: session_key,
   saveUninitialized:true,
-  cookie: { maxAge: oneDay, sameSite: 'none', secure: true},
+  cookie: { maxAge: oneDay, sameSite: 'strict', secure: false},
   resave: false,
 }));
 
@@ -245,4 +245,5 @@ app.get('/obras', (req, res) => {
 });
 
 //server starts listening for any attempts from a client to connect at port: {port}
-https.createServer(options, app).listen(PORT, () => { console.log(`Server listening on port ${PORT}`); });          
+//https.createServer(options, app).listen(PORT, () => { console.log(`Server listening on port ${PORT}`); });          
+app.listen(PORT, () => { console.log(`Server listening on port ${PORT}`); });      
