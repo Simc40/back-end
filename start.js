@@ -196,9 +196,16 @@ app.get('/set-cliente', (req, res) => {
 
   const ref = db.ref(`usuarios/${user.uid}`)
 
-  ref.update({ 'cliente': uid_cliente })
+  //ref.update({ 'cliente': uid_cliente })
+  ref.update({ 'cliente': uid_cliente}).then(function(){
+    console.log();
+    res.status(200).send("successful")
+  }).catch(function(error) {
+    console.log("Data could not be saved." + error);
+    res.status(201).send("failed")
+  });
   
-  res.status(200).send("successful")
+  //res.status(200).send("successful")
 });
 
 app.get('/clientes', (req, res) => {
