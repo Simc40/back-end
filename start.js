@@ -45,7 +45,8 @@ app.use(express.json({ limit: '50mb' }));
 
 //Configure Cross-Origin Resource Sharing (CORS)
 const corsOptions ={
-    origin: 'http://localhost:8000', 
+    origin: '*',
+    //origin: 'http://localhost:8000', 
     credentials:true,                     //access-control-allow-credentials:true
     optionSuccessStatus:200
 }
