@@ -11,7 +11,7 @@ const crypto = require('crypto');                                               
 const PORT = process.env.PORT || 3000;                                                     //Save the port number where your server will be listening
 
 //Start Firebase-admin server
-const defaultApp = admin.initializeApp({                                                   
+const defaultApp = admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://simc-iot-default-rtdb.firebaseio.com"
 });
@@ -38,7 +38,7 @@ var sessions_map = new Map();                                             // Has
 const auth = firebaseAuth.getAuth();                                      // Constant for using Firebase Authentincation Functions
 
 //Instantiate an express app, the main work horse of this server
-var app = express();                                        
+var app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use("/node_modules", express.static(__dirname + "/node_modules"));
 app.use(express.json({ limit: '50mb' }));
@@ -84,10 +84,6 @@ function myMiddleware (req, res, next) {
 }
 
 app.use(myMiddleware)
-
-
-
-
 
 
 /*************************/
