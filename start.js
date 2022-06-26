@@ -17,6 +17,8 @@ const defaultApp = admin.initializeApp({
 });
 
 const db = defaultApp.database();
+var databases_map = new Map();                                             // HashMap for storing database apps values
+
 
 // Initialize Firebase Configurations
 const keys = {
@@ -45,8 +47,8 @@ app.use(express.json({ limit: '50mb' }));
 
 //Configure Cross-Origin Resource Sharing (CORS)
 const corsOptions ={
-    origin: '*',
-    //origin: 'http://localhost:8000', 
+    //origin: '*',
+    origin: 'http://localhost:8000', 
     credentials:true,                     //access-control-allow-credentials:true
     optionSuccessStatus:200
 }
@@ -107,6 +109,24 @@ app.get('/', (req, res) => {
 });
 
 /*************************/
+/**** SELECT DATABASE ****/
+/*************************/
+
+function get_database(database){
+  let db_instace = databases_map.get(database)
+  if (db_instace == undefined || db_instace == null){
+    const new_db = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: database
+    }, database);
+    databases_map.set(database, new_db)
+    return new_db
+  }
+  return db_instace
+}
+
+
+/*************************/
 /*********SESSION*********/
 /*************************/
 
@@ -146,8 +166,9 @@ app.post('/login', (req, res) => {
       return snapshot.val()
     })
     //Step4
-    .then(function(database_cliente){
-      sessions_map.set(req.sessionID, {"uid": uid, "database":database_cliente})
+    .then(function(firebase_cliente){
+      let cliente = {"database":firebase_cliente.database, "uid":firebase_cliente.uid, "nome":firebase_cliente.nome}
+      sessions_map.set(req.sessionID, {"uid": uid, "cliente": cliente})
       res.send(db_success)
       })
     }).catch((error)=>{
@@ -188,6 +209,8 @@ app.get('/set-cliente', (req, res) => {
   console.log("function set Cliente")
   let uid_cliente = req.query.clienteuid;
   let database_cliente = req.query.database;
+  let nome_cliente = req.query.nome;
+  let cliente = {"database":database_cliente, "uid":uid_cliente, "nome":nome_cliente}
   let user = sessions_map.get(req.sessionID)
   user.database = database_cliente
 
@@ -195,7 +218,7 @@ app.get('/set-cliente', (req, res) => {
 
   //ref.update({ 'cliente': uid_cliente })
   ref.update({ 'cliente': uid_cliente}).then(function(){
-    console.log();
+    user.cliente = cliente
     res.status(200).send("successful")
   }).catch(function(error) {
     console.log("Data could not be saved." + error);
@@ -215,6 +238,11 @@ app.get('/clientes', (req, res) => {
   }); 
 });
 
+app.get('/user_cliente', (req, res) => {
+  let cliente = sessions_map.get(req.sessionID).cliente
+  res.status(200).send( {"cliente_uid": cliente.uid, "cliente_nome": cliente.nome, "code": 200})
+});
+
 app.get('/usuarios', (req, res) => {
     const ref = db.ref('usuarios');
     ref.once('value', (snapshot) => {
@@ -225,12 +253,31 @@ app.get('/usuarios', (req, res) => {
     }); 
 });
 
+app.get('/usuarios_de_cliente', (req, res) => {
+  let cliente_uid = sessions_map.get(req.sessionID).cliente.uid
+  const ref = db.ref('usuarios');
+  ref.once('value', (snapshot) => {
+    let response = []
+    let usuarios = snapshot.val()
+    Object.entries(usuarios).forEach((child) => {
+      if(child[1].cliente == cliente_uid){
+        response.push(child[1])
+      }
+    });
+    res.status(200).send(response);
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.send(db_error(200))
+  }); 
+});
+
 app.get('/acessos', (req, res) => {
   const ref = db.ref('tipos_acesso');
     ref.once('value', (snapshot) => {
       res.send(snapshot.val());
     }, (errorObject) => {
       console.log('The read failed: ' + errorObject.name);
+      res.send(db_error(200))
     }); 
 });
 
@@ -239,17 +286,14 @@ app.get('/acessos', (req, res) => {
 /*************************/
 
 app.get('/obras', (req, res) => {
-  let reference = realtime_database.ref(database, "")
-  //console.log(reference);
-  realtime_database.get(realtime_database.child(reference, `obras`)).then((snapshot) => {
-    if (snapshot.exists()) {
-      res.send(snapshot.val())
-    }else{
-      console.log("O dado referido não existe")
-    }
-  }).catch((error) => {
-    console.error(error);
-  });
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  let ref = admin.database(new_db).ref('obras');
+  ref.once('value', (snapshot) => {
+    res.send(snapshot.val());
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.send(db_error(200))
+  }); 
 });
 
 //server starts listening for any attempts from a client to connect at port: {port}
