@@ -1,4 +1,6 @@
 const express = require('express');                                                        //Import the express dependency
+const fileUpload = require('express-fileupload');
+const fs = require('fs')
 const sessions = require('express-session');
 const cors = require('cors');
 const path = require('path');                                                              //Import the path dependency
@@ -11,6 +13,9 @@ const firebaseAuth = require("firebase/auth");
 const crypto = require('crypto');                                                           //Crypto for generatin Random UUIDs//const uuid = crypto.randomUUID();
 
 const PORT = process.env.PORT || 3000;                                                     //Save the port number where your server will be listening
+
+
+const JSON_tipos_de_peca = require('./simc-iot-ufba-tipos_peca-export.json')
 
 //Start Firebase-admin server
 const defaultApp = admin.initializeApp({
@@ -76,7 +81,7 @@ app.use((err, _req, res, _next) => {
 function myMiddleware (req, res, next) {
   let url = req._parsedUrl.pathname
   console.log(url+"\n"+req.sessionID)
-  let permitedUrls = ["/", "/login", "/check-session","/logout"]
+  let permitedUrls = ["/", "/login", "/check-session","/logout", "/forget_password"]
   if(permitedUrls.includes(url)){
     next()
     return
@@ -270,7 +275,11 @@ app.get('/clientes', (req, res) => {
 
 app.get('/user_cliente', (req, res) => {
   let cliente = sessions_map.get(req.sessionID).cliente
-  res.status(200).send( {"cliente_uid": cliente.uid, "cliente_nome": cliente.nome, "code": 200})
+  let acesso = undefined
+  if (sessions_map.get(req.sessionID).acesso == acessos.admin) acesso = "admin"
+  else if (sessions_map.get(req.sessionID).acesso == acessos.responsavel) acesso = "responsavel"
+  else if (sessions_map.get(req.sessionID).acesso == acessos.usuario) acesso = "usuario"
+  res.status(200).send({"cliente_uid": cliente.uid, "cliente_nome": cliente.nome, "user_acesso": acesso})
 });
 
 app.get('/usuarios', (_req, res) => {
@@ -290,8 +299,26 @@ app.get('/usuarios_de_cliente', (req, res) => {
     let response = {}
     let usuarios = snapshot.val()
     Object.entries(usuarios).forEach((child) => {
-      if(child[1].cliente == cliente_uid || child[1].acesso == "685fe674-9d61-4946-8435-9cbc23a1fc8a"){
+      if(child[1].cliente == cliente_uid && child[1].acesso != "685fe674-9d61-4946-8435-9cbc23a1fc8a"){
         response[child[0]] = child[1]
+      }
+    });
+    res.status(200).send(response);
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.send(db_error(200))
+  }); 
+});
+
+app.get('/nome_de_usuarios_de_cliente', (req, res) => {
+  let cliente_uid = sessions_map.get(req.sessionID).cliente.uid
+  const ref = db.ref('usuarios');
+  ref.once('value', (snapshot) => {
+    let response = {}
+    let usuarios = snapshot.val()
+    Object.entries(usuarios).forEach((child) => {
+      if(child[1].cliente == cliente_uid || child[1].acesso == "685fe674-9d61-4946-8435-9cbc23a1fc8a"){
+        response[child[0]] = child[1].nome
       }
     });
     res.status(200).send(response);
@@ -329,14 +356,24 @@ app.post('/clientes_cadastrar', (req, res) => {
     let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     
-    let ref = db.ref(`clientes/${uuid}`);
+    const new_db = get_database(child[1].database)
+    let ref = admin.database(new_db).ref(`tipos_peca`);
+    ref.update(JSON_tipos_de_peca).then(function(){
+      void(0)
+    }).catch(function(error) {
+      console.log(error)
+      res.status(507).send()
+    });
+
+    ref = db.ref(`clientes/${uuid}`);
     ref.update(params).then(function(){
-        res.status(200).send(db_success)
+        void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
   });
+  res.status(200).send(db_success)
 });
 
 app.post('/clientes_gerenciar', (req, res) => {
@@ -373,30 +410,6 @@ app.post('/clientes_gerenciar', (req, res) => {
 /*************************/
 /*****    ACESSOS    *****/
 /*************************/
-
-/*app.post('/acessos_cadastrar', (req, res) => {
-  let user_uid = sessions_map.get(req.sessionID).uid
-  if(sessions_map.get(req.sessionID).acesso == acessos.usuario){
-    res.status(403).send();
-    return
-  }
-  const uuid = crypto.randomUUID()
-  const history_uuid = crypto.randomUUID()
-  Object.entries(req.body.params).forEach((child) => {
-    let date = child[1].date
-    delete child[1].date
-    let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
-    let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
-    
-    let ref = db.ref(`clientes/${uuid}`);
-    ref.update(params).then(function(){
-        res.status(200).send(db_success)
-    }).catch(function(error) {
-      console.log(error)
-      res.status(507).send()
-    });
-  });
-});*/
 
 app.post('/acessos_cadastrar', (req, res) => {
   const user_uid = sessions_map.get(req.sessionID).uid
@@ -501,9 +514,10 @@ app.post('/obras_cadastrar', (req, res) => {
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`obras/${uuid}`);
     ref.update(params).then(function(){
-        res.status(200).send(db_success)
+      res.status(200).send(db_success)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.og(error)
+      res.status(507).send()
     });
   });
 });
@@ -523,13 +537,15 @@ app.post('/obras_gerenciar', (req, res) => {
     ref.update(history).then(function(){
       console.log('success1')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
     ref = admin.database(new_db).ref(`obras/${uid}`);
     ref.update(params).then(function(){
       console.log('success2')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
   });
   res.status(200).send(db_success)
@@ -583,7 +599,8 @@ app.post('/tipos_de_peca_cadastrar', (req, res) => {
       ref.update(params).then(function(){
           res.status(200).send(db_success)
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(507).send()
       });
     }
     
@@ -613,13 +630,15 @@ app.post('/tipos_de_peca_gerenciar', (req, res) => {
     ref.update(history).then(function(){
       console.log('success1')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
     ref = admin.database(new_db).ref(`tipos_peca/${uid}`);
     ref.update(params).then(function(){
       console.log('success2')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
   });
   res.status(200).send(db_success)
@@ -1033,24 +1052,26 @@ app.get('/formas', (req, res) => {
     res.status(200).send(snapshot.val());
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.status(200).send(db_error(500))
+    res.status(507).send()
   }); 
 });
-
 app.post('/formas_cadastrar', (req, res) => {
   let user_uid = sessions_map.get(req.sessionID).uid
-  let date = req.body.date
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   const uuid = crypto.randomUUID()
   const history_uuid = crypto.randomUUID()
-  let history = {"lastModifiedBy":user_uid, "lastModifiedOn":date, "nome_galpao":req.body.nome_galpao, "status":req.body.status}
-  let params = {"createdBy":user_uid, "creation":date, "lastModifiedBy":user_uid, "lastModifiedOn":date, "nome_galpao":req.body.nome_galpao, "status":req.body.status, "history": {[history_uuid]: history}}
-
-  let ref = admin.database(new_db).ref(`galpoes/${uuid}`);
-  ref.update(params).then(function(){
-      res.status(200).send(db_success)
-  }).catch(function(error) {
-    res.status(200).send(db_error(500))
+  Object.entries(req.body.params).forEach((child) => {
+    let date = child[1].date
+    delete child[1].date
+    let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
+    let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
+    let ref = admin.database(new_db).ref(`formas/${uuid}`);
+    ref.update(params).then(function(){
+        res.status(200).send(db_success)
+    }).catch(function(error) {
+        console.log(error)
+        res.status(507).send()
+    });
   });
 });
 
@@ -1059,29 +1080,25 @@ app.post('/formas_gerenciar', (req, res) => {
   let user_uid = sessions_map.get(req.sessionID).uid
   Object.entries(req.body.params).forEach((child) => {
     let uid = child[0]
-    let status = child[1].status
     let date = child[1].date
-    let name = child[1].nome_galpao
+    delete child[1].date
     const history_uuid = crypto.randomUUID()
-    let params = {}
-    if(name == undefined || name == null){
-      params = {"lastModifiedBy":user_uid, "lastModifiedOn":date, "status":status}
-    }else{
-      params = {"lastModifiedBy":user_uid, "lastModifiedOn":date, "status":status, "nome_galpao": name}
-    }
+    let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])}
+    let params = Object.assign({}, {"createdBy":user_uid, "creation":date}, child[1])
     console.log(params)
-    let history = {[history_uuid]: params}
-    let ref = admin.database(new_db).ref(`galpoes/${uid}/history`);
+    let ref = admin.database(new_db).ref(`formas/${uid}/history`);
     ref.update(history).then(function(){
       console.log('success1')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
-    ref = admin.database(new_db).ref(`galpoes/${uid}`);
+    ref = admin.database(new_db).ref(`formas/${uid}`);
     ref.update(params).then(function(){
       console.log('success2')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
   });
   res.status(200).send(db_success)
@@ -1089,12 +1106,12 @@ app.post('/formas_gerenciar', (req, res) => {
 
 
 /*************************/
-/*****    MODELOS   ******/
+/*****    elementos   ******/
 /*************************/
 
-app.get('/modelos', (req, res) => {
+app.get('/elementos', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-  let ref = admin.database(new_db).ref('modelos');
+  let ref = admin.database(new_db).ref('elementos');
   ref.once('value', (snapshot) => {
     res.status(200).send(snapshot.val());
   }, (errorObject) => {
@@ -1103,7 +1120,7 @@ app.get('/modelos', (req, res) => {
   }); 
 });
 
-app.post('/modelos_cadastrar', (req, res) => {
+app.post('/elementos_cadastrar', (req, res) => {
   let user_uid = sessions_map.get(req.sessionID).uid
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   const uuid = crypto.randomUUID()
@@ -1117,7 +1134,7 @@ app.post('/modelos_cadastrar', (req, res) => {
     child[1].numPlanejado = "0"
     let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
-    let ref = admin.database(new_db).ref(`modelos/${obra}/${uuid}`);
+    let ref = admin.database(new_db).ref(`elementos/${obra}/${uuid}`);
     ref.update(params).then(function(){
         res.status(200).send(db_success)
     }).catch(function(error) {
@@ -1126,7 +1143,7 @@ app.post('/modelos_cadastrar', (req, res) => {
   });
 });
 
-app.post('/modelos_gerenciar', (req, res) => {
+app.post('/elementos_gerenciar', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let user_uid = sessions_map.get(req.sessionID).uid
   Object.entries(req.body.params).forEach((child) => {
@@ -1139,13 +1156,13 @@ app.post('/modelos_gerenciar', (req, res) => {
     let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])}
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date}, child[1])
     console.log(params)
-    let ref = admin.database(new_db).ref(`modelos/${obra}/${uid}/history`);
+    let ref = admin.database(new_db).ref(`elementos/${obra}/${uid}/history`);
     ref.update(history).then(function(){
       console.log('success1')
     }).catch(function(error) {
       res.status(200).send(db_error(500))
     });
-    ref = admin.database(new_db).ref(`modelos/${obra}/${uid}`);
+    ref = admin.database(new_db).ref(`elementos/${obra}/${uid}`);
     ref.update(params).then(function(){
       console.log('success2')
     }).catch(function(error) {
@@ -1183,17 +1200,233 @@ app.post('/checklist_post', (req, res) => {
     ref.update(history).then(function(){
       console.log('success1')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
     ref = admin.database(new_db).ref(`checklist/${etapa}`);
     ref.set(history_uuid).then(function(){
       console.log('success2')
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(507).send()
     });
   });
   res.status(200).send(db_success)
 });
+
+/*************************/
+/*******    PDFs   *******/
+/*************************/
+
+app.get('/PDF', (req, res) => {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  let ref = admin.database(new_db).ref('PDF');
+  ref.once('value', (snapshot) => {
+    res.status(200).send(snapshot.val());
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.send(db_error(200))
+  }); 
+});
+
+app.get('/PDF_elementos', (req, res) => {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  let ref = admin.database(new_db).ref('PDF_elementos');
+  ref.once('value', (snapshot) => {
+    res.status(200).send(snapshot.val());
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.send(db_error(200))
+  }); 
+});
+
+app.post('/PDF_obras', fileUpload(), function (req, res) {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
+  let user_uid = sessions_map.get(req.sessionID).uid
+  const form_size = parseInt(req.body.formData_size)
+  let obra = req.body.formData_obra
+  let date = req.body.formData_date
+  for(let i = 1 ; i <= form_size; i++){
+    let params = JSON.parse(req.body[`formData_${i}`])
+    const history_uuid = crypto.randomUUID()
+    if(params.activity == "remove"){
+      let ref = admin.database(new_db).ref(`PDF/${obra}/${params.uid}`);
+      ref.remove().then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      new_bucket.file("PDF/"+obra+"/"+params.uid+"/some.pdf").delete();
+      continue
+    }
+    if(params.activity == "status"){
+      delete params.activity
+      let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, params)}
+      let ref = admin.database(new_db).ref(`PDF/${obra}/${params.uid}/history`);
+      ref.update(history).then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      ref = admin.database(new_db).ref(`PDF/${obra}/${params.uid}`);
+      ref.update(params).then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      if(params.status == "ativo"){
+        ref = admin.database(new_db).ref(`PDF/${obra}/ativo`);
+        ref.set(params.uid).then(function(){
+          void(0)
+        }).catch(function(error){
+          console.log(error)
+          res.status(507).send()
+        });
+      }
+      continue
+    }
+    delete params.activity
+    const uuid = crypto.randomUUID()
+    const filePath = "some.pdf"
+    let pdf = req.files[`uploadedFile_${i}`]
+    console.log(pdf)
+    generatePdfFromBuffer(pdf.data)
+    const bucketName = new_bucket.name;
+    const destFileName = "PDF/"+obra+"/"+uuid+"/"+filePath;
+
+    async function uploadFile() {
+      await new_bucket.upload(filePath, {
+        destination: destFileName,
+        metadata: {      
+          // "custom" metadata:
+          metadata: {
+            firebaseStorageDownloadTokens: uuid, // Can technically be anything you want
+          },
+        }
+      })
+      params.pdfUrl = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + encodeURIComponent(destFileName) + "?alt=media&token=" + uuid
+      history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, params)
+      let new_params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, params)
+      let ref = admin.database(new_db).ref(`PDF/${obra}/${uuid}`);
+      ref.update(new_params).then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      if(params.status == "ativo"){
+        ref = admin.database(new_db).ref(`PDF/${obra}/ativo`);
+        ref.set(uuid).then(function(){
+          void(0)
+        }).catch(function(error){
+          console.log(error)
+          res.status(507).send()
+        });
+      }
+    }
+    uploadFile().catch(console.error);
+  }
+  res.status(200).send(db_success);
+});
+
+app.post('/PDF_elementos', fileUpload(), function (req, res) {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
+  let user_uid = sessions_map.get(req.sessionID).uid
+  const form_size = parseInt(req.body.formData_size)
+  const obra = req.body.formData_obra
+  const elemento = req.body.formData_elemento
+  const date = req.body.formData_date
+  for(let i = 1 ; i <= form_size; i++){
+    let params = JSON.parse(req.body[`formData_${i}`])
+    const history_uuid = crypto.randomUUID()
+    if(params.activity == "remove"){
+      let ref = admin.database(new_db).ref(`PDF_elementos/${obra}/${elemento}/${params.uid}`);
+      ref.remove().then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      new_bucket.file("PDF_elementos/"+obra+"/"+elemento+"/"+params.uid+"/some.pdf").delete();
+      continue
+    }
+    if(params.activity == "status"){
+      delete params.activity
+      let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, params)}
+      let ref = admin.database(new_db).ref(`PDF_elementos/${obra}/${elemento}/${params.uid}/history`);
+      ref.update(history).then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      ref = admin.database(new_db).ref(`PDF_elementos/${obra}/${elemento}/${params.uid}`);
+      ref.update(params).then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      if(params.status == "ativo"){
+        ref = admin.database(new_db).ref(`PDF_elementos/${obra}/${elemento}/ativo`);
+        ref.set(params.uid).then(function(){
+          void(0)
+        }).catch(function(error){
+          console.log(error)
+          res.status(507).send()
+        });
+      }
+      continue
+    }
+    delete params.activity
+    const uuid = crypto.randomUUID()
+    const filePath = "some.pdf"
+    let pdf = req.files[`uploadedFile_${i}`]
+    console.log(pdf)
+    generatePdfFromBuffer(pdf.data)
+    const bucketName = new_bucket.name;
+    const destFileName = "PDF_elementos/"+obra+"/"+elemento+"/"+uuid+"/"+filePath;
+
+    async function uploadFile() {
+      await new_bucket.upload(filePath, {
+        destination: destFileName,
+        metadata: {      
+          // "custom" metadata:
+          metadata: {
+            firebaseStorageDownloadTokens: uuid, // Can technically be anything you want
+          },
+        }
+      })
+      params.pdfUrl = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + encodeURIComponent(destFileName) + "?alt=media&token=" + uuid
+      history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, params)
+      let new_params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, params)
+      let ref = admin.database(new_db).ref(`PDF_elementos/${obra}/${elemento}/${uuid}`);
+      ref.update(new_params).then(function(){
+        void(0)
+      }).catch(function(error){
+        console.log(error)
+        res.status(507).send()
+      });
+      if(params.status == "ativo"){
+        ref = admin.database(new_db).ref(`PDF_elementos/${obra}/${elemento}/ativo`);
+        ref.set(uuid).then(function(){
+          void(0)
+        }).catch(function(error){
+          console.log(error)
+          res.status(507).send()
+        });
+      }
+    }
+    uploadFile().catch(console.error);
+  }
+  res.status(200).send(db_success);
+});
+
 
 /*************************/
 /****  PLANEJAMENTO  *****/
@@ -1297,7 +1530,7 @@ app.post('/romaneio_post', (req, res) => {
       res.status(200).send(db_error(500))
     });
     Object.entries(child[1].pecas).forEach((peca) => {
-      ref = admin.database(new_db).ref(`pecas/${child[1].obra}/${peca[1].modelo}/${peca[0]}/romaneio`);
+      ref = admin.database(new_db).ref(`pecas/${child[1].obra}/${peca[1].elemento}/${peca[0]}/romaneio`);
       ref.set(uuid).then(function(){
         console.log("success2")
       }).catch(function(error) {
@@ -1367,6 +1600,17 @@ app.post('/acesso_cadastrar', (req, res) => {
   res.status(200).send(db_success)
 });
 
+app.post('/forget_password', (req, res) => {
+  let email = req.body.email
+  firebaseAuth.sendPasswordResetEmail(auth, email, null).then(function() {
+    res.status(200).send(db_success)
+  })
+  .catch(function(error) {
+    // Error occurred. Inspect error.code.
+    console.log(error)
+    res.status(403).send({"error":error.code})
+  });
+})
 
 //////////////////////////
 function convertBase64ToFile(base64Image) {
@@ -1379,6 +1623,11 @@ function convertBase64ToFile(base64Image) {
   })
   return ba64.getExt(base64Image)
 }
+
+function generatePdfFromBuffer(buffer){
+  fs.writeFileSync("some.pdf", buffer)
+}
+
 
 //server starts listening for any attempts from a client to connect at port: {port}
 //https.createServer(options, app).listen(PORT, () => { console.log(`Server listening on port ${PORT}`); });          
