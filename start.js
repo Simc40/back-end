@@ -144,6 +144,12 @@ let acessos = {
   "admin": "685fe674-9d61-4946-8435-9cbc23a1fc8a"
 }
 
+let acessos_from_uid = {
+  "49481bb2-4aa9-4266-ba2b-3d2faa6258a0": "responsavel",
+  "497ed826-c29f-4dc3-964b-d491f54a2a2f": "usuario",
+  "685fe674-9d61-4946-8435-9cbc23a1fc8a": "admin"
+}
+
 /*************************/
 /*********SESSION*********/
 /*************************/
@@ -196,7 +202,19 @@ app.post('/login', (req, res) => {
       if(user_acesso == acessos.admin){
         res.status(202).send()
       }else{
-        res.status(200).send()
+        if(user_acesso == acessos.responsavel){
+          res.status(200).send();
+          return
+        }
+        let ref_permission = db.ref(`usuarios/${uid}/acessos_atividades/Website`);
+        ref_permission.once('value', (snapshot) => {
+          if(snapshot.val() == "ativo") res.status(200).send();
+          else if(snapshot.val() == "inativo") res.status(403).send();
+          else{res.status(500).send()}
+        }, (errorObject) => {
+          console.log('The read failed: ' + errorObject.name);
+          res.status(500).send()
+        }); 
       }
       })
     }).catch((error)=>{
@@ -209,7 +227,7 @@ app.post('/login', (req, res) => {
       console.log(error)
       if(error.name == "FirebaseError") {
         //User Login error
-        res.status(403).send()
+        res.status(401).send()
         return
       }
       //Error in Get client from user in `usuarios/${uid_user}/cliente`
@@ -327,6 +345,42 @@ app.get('/nome_de_usuarios_de_cliente', (req, res) => {
     res.send(db_error(200))
   }); 
 });
+
+app.post('/page_permission', (req, res) => {
+  if(sessions_map.get(req.sessionID).acesso != acessos.usuario){
+    res.status(200).send();
+    return
+  }
+  let user_uid = sessions_map.get(req.sessionID).uid
+  let atividade  = req.body.atividade
+  const ref = db.ref(`usuarios/${user_uid}/acessos_atividades/${atividade}`);
+  ref.once('value', (snapshot) => {
+    if(snapshot.val() == "ativo") res.status(200).send();
+    else if(snapshot.val() == "inativo") res.status(403).send();
+    else{res.status(500).send()}
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.status(500).send()
+  }); 
+});
+
+app.get('/profile', (req, res) => {
+  let user_uid = sessions_map.get(req.sessionID).uid
+  let user_acesso = acessos_from_uid[sessions_map.get(req.sessionID).acesso]
+  let cliente = sessions_map.get(req.sessionID).cliente.nome
+
+  const ref = db.ref(`usuarios/${user_uid}`);
+  ref.once('value', (snapshot) => {
+    let response = snapshot.val()
+    response.acesso = user_acesso
+    response.cliente = cliente
+    res.status(200).send(response);
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.send(db_error(200))
+  }); 
+});
+
 
 app.get('/acessos', (_req, res) => {
   const ref = db.ref('tipos_acesso');
@@ -485,7 +539,32 @@ app.post('/acessos_cadastrar', (req, res) => {
   });
 });
 
+app.post('/acessos_gerenciar', (req, res) => {
+  let user_uid = sessions_map.get(req.sessionID).uid
+  Object.entries(req.body.params).forEach((child) => {
+    let uid = child[0]
+    let date = child[1].date
+    delete child[1].date
+    const history_uuid = crypto.randomUUID()
+    let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])}
 
+    let ref = db.ref(`usuarios/${uid}/history`);
+    ref.update(history).then(function(){
+      console.log('success1')
+    }).catch(function(error) {
+      console.log(error)
+      res.status(507).send()
+    });
+    ref = db.ref(`usuarios/${uid}`);
+    ref.update(child[1]).then(function(){
+      console.log('success2')
+    }).catch(function(error) {
+      console.log(error)
+      res.status(507).send()
+    });
+  });
+  res.status(200).send(db_success)
+})
 
 /*************************/
 /******    OBRAS    ******/
