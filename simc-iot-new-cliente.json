@@ -1,0 +1,230 @@
+{
+  "tipos_peca":{
+    "04b00257-a361-446c-ba30-b8d1648e34db": {
+      "createdBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+      "creation": "15/07/2022 02:11:42",
+      "history": {
+        "1f75df64-1ad5-41a0-9229-a90cd82e1652": {
+          "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F04b00257-a361-446c-ba30-b8d1648e34db%2Fespecial.png?alt=media&token=8fa06e1d-3d20-4222-a7e8-c70720b47cb8",
+          "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+          "lastModifiedOn": "15/07/2022 02:11:42",
+          "nome_tipo_peca": "especial",
+          "status": "ativo"
+        }
+      },
+      "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F04b00257-a361-446c-ba30-b8d1648e34db%2Fespecial.png?alt=media&token=8fa06e1d-3d20-4222-a7e8-c70720b47cb8",
+      "nome_tipo_peca": "especial",
+      "status": "ativo"
+    },
+    "6326085c-fceb-4041-b59d-c050148a7e5a": {
+      "createdBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+      "creation": "15/07/2022 02:11:31",
+      "history": {
+        "8469df64-7f3b-4674-9c62-a6717ede1f4c": {
+          "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F6326085c-fceb-4041-b59d-c050148a7e5a%2Ffundacao.png?alt=media&token=c5d6a39c-eeae-4ed9-a1c6-16eb3ad13c64",
+          "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+          "lastModifiedOn": "15/07/2022 02:11:31",
+          "nome_tipo_peca": "fundacao",
+          "status": "ativo"
+        }
+      },
+      "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F6326085c-fceb-4041-b59d-c050148a7e5a%2Ffundacao.png?alt=media&token=c5d6a39c-eeae-4ed9-a1c6-16eb3ad13c64",
+      "nome_tipo_peca": "fundacao",
+      "status": "ativo"
+    },
+    "862a6cc1-eaf3-4a04-a0ba-86b347560cee": {
+      "createdBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+      "creation": "15/07/2022 02:11:58",
+      "history": {
+        "b664d6ea-5d44-42e9-8b40-3c0495118113": {
+          "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F862a6cc1-eaf3-4a04-a0ba-86b347560cee%2Fpilar.png?alt=media&token=dedb6aae-1d17-428e-b205-ae952ef937ec",
+          "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+          "lastModifiedOn": "15/07/2022 02:11:58",
+          "nome_tipo_peca": "pilar",
+          "status": "ativo"
+        }
+      },
+      "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F862a6cc1-eaf3-4a04-a0ba-86b347560cee%2Fpilar.png?alt=media&token=dedb6aae-1d17-428e-b205-ae952ef937ec",
+      "nome_tipo_peca": "pilar",
+      "status": "ativo"
+    },
+    "8710e0a5-28c2-45c5-bc5f-a0f56235fbdc": {
+      "createdBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+      "creation": "15/07/2022 02:11:50",
+      "history": {
+        "3d4d80f3-a865-4c77-b8f3-c420d43e9610": {
+          "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F8710e0a5-28c2-45c5-bc5f-a0f56235fbdc%2Flaje.png?alt=media&token=f50431ed-752e-4dca-8fb4-3802439e975e",
+          "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+          "lastModifiedOn": "15/07/2022 02:11:50",
+          "nome_tipo_peca": "laje",
+          "status": "ativo"
+        }
+      },
+      "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2F8710e0a5-28c2-45c5-bc5f-a0f56235fbdc%2Flaje.png?alt=media&token=f50431ed-752e-4dca-8fb4-3802439e975e",
+      "nome_tipo_peca": "laje",
+      "status": "ativo"
+    },
+    "a4d3f9c1-ca6f-493b-98f6-01c33602a1d8": {
+      "createdBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+      "creation": "15/07/2022 02:12:41",
+      "history": {
+        "42f8e232-9e68-449e-bd9a-5a731649168d": {
+          "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2Fa4d3f9c1-ca6f-493b-98f6-01c33602a1d8%2Fespecial.png?alt=media&token=5d5bb91c-4574-45f3-bdc1-d0cf41d01324",
+          "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+          "lastModifiedOn": "15/07/2022 02:12:41",
+          "nome_tipo_peca": "Bloco de Fundação",
+          "status": "ativo"
+        }
+      },
+      "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2Fa4d3f9c1-ca6f-493b-98f6-01c33602a1d8%2Fespecial.png?alt=media&token=5d5bb91c-4574-45f3-bdc1-d0cf41d01324",
+      "nome_tipo_peca": "Bloco de Fundação",
+      "status": "ativo"
+    },
+    "f7fe8c49-40d7-4423-807e-4bdd8bc7c7c9": {
+      "createdBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+      "creation": "15/07/2022 02:12:05",
+      "history": {
+        "492da279-3fce-4d65-b8d4-fd99db8b9a3e": {
+          "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2Ff7fe8c49-40d7-4423-807e-4bdd8bc7c7c9%2Fviga.png?alt=media&token=ce6f65af-e337-4b40-931b-ee301678c8ba",
+          "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+          "lastModifiedOn": "15/07/2022 02:12:05",
+          "nome_tipo_peca": "viga",
+          "status": "ativo"
+        }
+      },
+      "imgUrl": "https://firebasestorage.googleapis.com/v0/b/simc-iot.appspot.com/o/tipos_peca%2Ff7fe8c49-40d7-4423-807e-4bdd8bc7c7c9%2Fviga.png?alt=media&token=ce6f65af-e337-4b40-931b-ee301678c8ba",
+      "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+      "lastModifiedOn": "03/08/2022 15:17:29",
+      "nome_tipo_peca": "viga",
+      "status": "inativo"
+    }
+  },
+  "checklist":{
+    "armacao": "07989fa9-c39b-417f-bd6f-c17fcf924ca8",
+  "armacaoForma": "11e5a2d5-3c7c-4efd-81b3-fd3edca7d49d",
+  "cadastro": "f46f5c20-f57a-4645-b36d-834c08e79c2f",
+  "carga": "3807d607-86dd-448a-9c91-94d973d6cff9",
+  "concretagem": "68faa799-3cd0-47ed-b8b8-30d61c47f089",
+  "descarga": "1e193841-e1d9-4f70-8d7b-66dc157e5c71",
+  "forma": "c586679b-c229-4a67-b467-b823100c6b3c",
+  "history": {
+    "armacao": {
+      "07989fa9-c39b-417f-bd6f-c17fcf924ca8": {
+        "0": "Bitola",
+        "1": "Espaçadores",
+        "2": "Espaçamento",
+        "3": "Quantidade de Barras e Estribos",
+        "4": "Alça de Içamento",
+        "5": "Amarração das Barras",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:26:56"
+      }
+    },
+    "armacaoForma": {
+      "11e5a2d5-3c7c-4efd-81b3-fd3edca7d49d": {
+        "0": "Cobrimento",
+        "1": "SPDA",
+        "2": "Inserts",
+        "3": "Tubo de Água Pluvial",
+        "4": "Chumbador",
+        "5": "Furo de Passagem",
+        "6": "Barra de Montagem",
+        "7": "Sem Avarias Devido a Içamento",
+        "8": "Alça de Içamento",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:27:13"
+      }
+    },
+    "cadastro": {
+      "f46f5c20-f57a-4645-b36d-834c08e79c2f": {
+        "0": "Defeito na tag",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:26:52"
+      }
+    },
+    "carga": {
+      "3807d607-86dd-448a-9c91-94d973d6cff9": {
+        "0": "Identificação da Peça",
+        "1": "Inspeção visual do Carregamento",
+        "2": "Checagem da ordem de carga",
+        "3": "Nota Fiscal",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:27:34"
+      }
+    },
+    "concretagem": {
+      "68faa799-3cd0-47ed-b8b8-30d61c47f089": {
+        "0": "Exsudação",
+        "1": "Vazios de Concretagem",
+        "2": "Cura",
+        "3": "Estanqueidade de Forma",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:27:21"
+      }
+    },
+    "descarga": {
+      "1e193841-e1d9-4f70-8d7b-66dc157e5c71": {
+        "0": "Ordem da Carga",
+        "1": "Identificação",
+        "2": "Integridade da Peça",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:27:38"
+      }
+    },
+    "forma": {
+      "c586679b-c229-4a67-b467-b823100c6b3c": {
+        "0": "Dimensão da Forma",
+        "1": "Travamento da Forma",
+        "2": "Nivelamento da Forma",
+        "3": "Alinhamento da Forma",
+        "4": "Integridade de Forma",
+        "5": "Desmoldante",
+        "6": "Posição dos Consoles na Forma",
+        "7": "Sem Avarias Devido a Içamento",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:27:07"
+      }
+    },
+    "liberacao": {
+      "7168a5f5-51d5-4ddb-aa42-e37866988ab7": {
+        "0": "Lixamento",
+        "1": "Uniformidade",
+        "2": "Espessura do Estuque",
+        "3": "Etiqueta",
+        "4": "Dimensões da Peça",
+        "5": "Prumo da Peça",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:27:25"
+      }
+    },
+    "montagem": {
+      "d77c9065-d23c-4705-896a-f5f19d052630": {
+        "0": "Nível",
+        "1": "Prumo",
+        "2": "Posição de console",
+        "3": "Solidarização",
+        "4": "Apoio de ligação",
+        "5": "Tolerância de folga",
+        "6": "Estabilidade",
+        "7": "Alinhamento",
+        "8": "Desobstrução de furos",
+        "9": "Outros",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:27:42"
+      }
+    },
+    "planejamento": {
+      "7e624c9c-857f-4f45-b43e-2981a1ead201": {
+        "0": "Inconsistência no número de peças planejadas",
+        "1": "Inconsistência de medidas",
+        "2": "Modelo associado está incorreto",
+        "lastModifiedBy": "75A72HK1Q1WltVcAPNROtZg8uN02",
+        "lastModifiedOn": "16/07/2022 15:26:10"
+      }
+    }
+  },
+  "liberacao": "7168a5f5-51d5-4ddb-aa42-e37866988ab7",
+  "montagem": "d77c9065-d23c-4705-896a-f5f19d052630",
+  "planejamento": "7e624c9c-857f-4f45-b43e-2981a1ead201"
+  }
+}

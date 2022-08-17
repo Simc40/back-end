@@ -15,7 +15,7 @@ const crypto = require('crypto');                                               
 const PORT = process.env.PORT || 3000;                                                     //Save the port number where your server will be listening
 
 
-const JSON_tipos_de_peca = require('./simc-iot-ufba-tipos_peca-export.json')
+const JSON_tipos_de_peca = require('./simc-iot-new-cliente.json')
 
 //Start Firebase-admin server
 const defaultApp = admin.initializeApp({
@@ -161,6 +161,8 @@ app.get('/check-session', (req, res) => {
     success.user_name = sessions_map.get(req.sessionID).nome
     success.imgUrl = sessions_map.get(req.sessionID).imgUrl
     success.acesso = Object.keys(acessos).find(key => acessos[key] === sessions_map.get(req.sessionID).acesso);
+    success.cliente = sessions_map.get(req.sessionID).cliente.nome
+    success.logoUrl = sessions_map.get(req.sessionID).cliente.logo
     res.status(200).send(success)
     return
   }
@@ -197,7 +199,7 @@ app.post('/login', (req, res) => {
     })
     //Step4
     .then(function(firebase_cliente){
-      let cliente = {"storage": firebase_cliente.storage, "database":firebase_cliente.database, "uid":firebase_cliente.uid, "nome":firebase_cliente.nome}
+      let cliente = {"storage": firebase_cliente.storage, "database":firebase_cliente.database, "uid":firebase_cliente.uid, "nome":firebase_cliente.nome, "logo": firebase_cliente.logoUrl}
       sessions_map.set(req.sessionID, {"acesso": user_acesso, "uid": uid, "cliente": cliente, "nome": user_name, "imgUrl": user_imgUrl})
       if(user_acesso == acessos.admin){
         res.status(202).send()
@@ -245,21 +247,116 @@ app.get('/logout', (req, res) => {
 });
 
 /*************************/
+/****** USER INFO   ******/
+/*************************/
+
+app.get('/usuarios', (_req, res) => {
+  const ref = db.ref('usuarios');
+  ref.once('value', (snapshot) => {
+    res.status(200).send(snapshot.val());
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.send(db_error(200))
+  }); 
+});
+
+app.get('/cliente_de_usuario', (req, res) => {
+  try{
+    let cliente = sessions_map.get(req.sessionID).cliente
+    let acesso = undefined
+    if (sessions_map.get(req.sessionID).acesso == acessos.admin) acesso = "admin"
+    else if (sessions_map.get(req.sessionID).acesso == acessos.responsavel) acesso = "responsavel"
+    else if (sessions_map.get(req.sessionID).acesso == acessos.usuario) acesso = "usuario"
+    res.status(200).send({"cliente_uid": cliente.uid, "cliente_nome": cliente.nome, "user_acesso": acesso})
+  }catch{
+    res.status(507).send()
+  }
+});
+
+app.get('/usuarios_de_cliente', (req, res) => {
+  let cliente_uid = sessions_map.get(req.sessionID).cliente.uid
+  const ref = db.ref('usuarios');
+  ref.once('value', (snapshot) => {
+    let response = {}
+    let usuarios = snapshot.val()
+    Object.entries(usuarios).forEach((child) => {
+      if(child[1].cliente == cliente_uid && child[1].acesso != "685fe674-9d61-4946-8435-9cbc23a1fc8a"){
+        response[child[0]] = child[1]
+      }
+    });
+    if(Object.keys(response).length === 0) res.status(404).send()
+    else{res.status(200).send(response)}
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.status(507).send()
+  }); 
+});
+
+app.get('/nome_de_usuarios_de_cliente', (req, res) => {
+  let cliente_uid = sessions_map.get(req.sessionID).cliente.uid
+  const ref = db.ref('usuarios');
+  ref.once('value', (snapshot) => {
+    let response = {}
+    let usuarios = snapshot.val()
+    Object.entries(usuarios).forEach((child) => {
+      if(child[1].cliente == cliente_uid || child[1].acesso == "685fe674-9d61-4946-8435-9cbc23a1fc8a"){
+        response[child[0]] = child[1].nome
+      }
+    });
+    if(Object.keys(response).length === 0) res.status(404).send()
+    else{res.status(200).send(response)}
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.status(507).send()
+  }); 
+});
+
+app.get('/profile', (req, res) => {
+  let user_uid
+  let user_acesso
+  let cliente
+  try{
+    user_uid = sessions_map.get(req.sessionID).uid
+    user_acesso = acessos_from_uid[sessions_map.get(req.sessionID).acesso]
+    cliente = sessions_map.get(req.sessionID).cliente.nome
+  }catch{
+    res.status(507).send()
+    return
+  }
+
+  const ref = db.ref(`usuarios/${user_uid}`);
+  ref.once('value', (snapshot) => {
+    let response = snapshot.val()
+    if(snapshot.val() == null){
+      res.status(507).send()
+      return
+    } 
+    response.acesso = user_acesso
+    response.cliente = cliente
+    res.status(200).send(response);
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.status(507).send()
+  }); 
+});
+
+/*************************/
 /******SELECT CLIENT******/
 /*************************/
 
 
-app.get('/set-cliente', (req, res) => {
+app.post('/set-cliente', (req, res) => {
   if(sessions_map.get(req.sessionID).acesso != acessos.admin){
     res.status(403).send();
     return
   }
   console.log("function set Cliente")
-  let uid_cliente = req.query.clienteuid;
-  let database_cliente = req.query.database;
-  let nome_cliente = req.query.nome;
-  let storage_cliente = req.query.storage;
-  let cliente = {"database":database_cliente, "uid":uid_cliente, "nome":nome_cliente, "storage": storage_cliente}
+  let uid_cliente = req.body.clienteuid;
+  let database_cliente = req.body.database;
+  let nome_cliente = req.body.nome;
+  let storage_cliente = req.body.storage;
+  let logo_url = req.body.logo_url;
+  let cliente = {"database":database_cliente, "uid":uid_cliente, "nome":nome_cliente, "storage": storage_cliente, "logo": logo_url}
   let user = sessions_map.get(req.sessionID)
   user.database = database_cliente
 
@@ -284,65 +381,11 @@ app.get('/clientes', (req, res) => {
   }
   const ref = db.ref('clientes');
   ref.once('value', (snapshot) => {
-    res.send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.status(200).send(errorObject)
-  }); 
-});
-
-app.get('/user_cliente', (req, res) => {
-  let cliente = sessions_map.get(req.sessionID).cliente
-  let acesso = undefined
-  if (sessions_map.get(req.sessionID).acesso == acessos.admin) acesso = "admin"
-  else if (sessions_map.get(req.sessionID).acesso == acessos.responsavel) acesso = "responsavel"
-  else if (sessions_map.get(req.sessionID).acesso == acessos.usuario) acesso = "usuario"
-  res.status(200).send({"cliente_uid": cliente.uid, "cliente_nome": cliente.nome, "user_acesso": acesso})
-});
-
-app.get('/usuarios', (_req, res) => {
-    const ref = db.ref('usuarios');
-    ref.once('value', (snapshot) => {
-      res.status(200).send(snapshot.val());
-    }, (errorObject) => {
-      console.log('The read failed: ' + errorObject.name);
-      res.send(db_error(200))
-    }); 
-});
-
-app.get('/usuarios_de_cliente', (req, res) => {
-  let cliente_uid = sessions_map.get(req.sessionID).cliente.uid
-  const ref = db.ref('usuarios');
-  ref.once('value', (snapshot) => {
-    let response = {}
-    let usuarios = snapshot.val()
-    Object.entries(usuarios).forEach((child) => {
-      if(child[1].cliente == cliente_uid && child[1].acesso != "685fe674-9d61-4946-8435-9cbc23a1fc8a"){
-        response[child[0]] = child[1]
-      }
-    });
-    res.status(200).send(response);
-  }, (errorObject) => {
-    console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
-  }); 
-});
-
-app.get('/nome_de_usuarios_de_cliente', (req, res) => {
-  let cliente_uid = sessions_map.get(req.sessionID).cliente.uid
-  const ref = db.ref('usuarios');
-  ref.once('value', (snapshot) => {
-    let response = {}
-    let usuarios = snapshot.val()
-    Object.entries(usuarios).forEach((child) => {
-      if(child[1].cliente == cliente_uid || child[1].acesso == "685fe674-9d61-4946-8435-9cbc23a1fc8a"){
-        response[child[0]] = child[1].nome
-      }
-    });
-    res.status(200).send(response);
-  }, (errorObject) => {
-    console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -363,24 +406,6 @@ app.post('/page_permission', (req, res) => {
     res.status(500).send()
   }); 
 });
-
-app.get('/profile', (req, res) => {
-  let user_uid = sessions_map.get(req.sessionID).uid
-  let user_acesso = acessos_from_uid[sessions_map.get(req.sessionID).acesso]
-  let cliente = sessions_map.get(req.sessionID).cliente.nome
-
-  const ref = db.ref(`usuarios/${user_uid}`);
-  ref.once('value', (snapshot) => {
-    let response = snapshot.val()
-    response.acesso = user_acesso
-    response.cliente = cliente
-    res.status(200).send(response);
-  }, (errorObject) => {
-    console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
-  }); 
-});
-
 
 app.get('/acessos', (_req, res) => {
   const ref = db.ref('tipos_acesso');
@@ -407,11 +432,12 @@ app.post('/clientes_cadastrar', (req, res) => {
   Object.entries(req.body.params).forEach((child) => {
     let date = child[1].date
     delete child[1].date
+    child[1].uid = uuid
     let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     
     const new_db = get_database(child[1].database)
-    let ref = admin.database(new_db).ref(`tipos_peca`);
+    let ref = admin.database(new_db).ref();
     ref.update(JSON_tipos_de_peca).then(function(){
       void(0)
     }).catch(function(error) {
@@ -574,10 +600,11 @@ app.get('/obras', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('obras');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -638,10 +665,11 @@ app.get('/tipos_de_peca', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('tipos_peca');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -800,10 +828,11 @@ app.get('/transportadoras', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('transportadoras');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1060,10 +1089,11 @@ app.get('/galpoes', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('galpoes');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1128,7 +1158,8 @@ app.get('/formas', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('formas');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
     res.status(507).send()
@@ -1192,10 +1223,11 @@ app.get('/elementos', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('elementos');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1259,10 +1291,11 @@ app.get('/checklist', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('checklist');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1301,10 +1334,11 @@ app.get('/PDF', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('PDF');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1312,10 +1346,11 @@ app.get('/PDF_elementos', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref('PDF_elementos');
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1506,35 +1541,47 @@ app.post('/PDF_elementos', fileUpload(), function (req, res) {
   res.status(200).send(db_success);
 });
 
-
 /*************************/
-/****  PLANEJAMENTO  *****/
+/********  ERROS  ********/
 /*************************/
 
-app.get('/planejamento', (req, res) => {
+app.get('/erros', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-  let ref = admin.database(new_db).ref(`planejamento`);
+  let ref = admin.database(new_db).ref(`erros`);
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
-app.post('/planejamento_post', (req, res) => {
+/*************************/
+/****  PROGRAMAÇÃO  *****/
+/*************************/
+
+app.get('/programacao', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-  Object.entries(req.body.params).forEach((child) => {
-    let ano = child[0]
-    let params = child[1]
-    console.log(ano)
-    console.log(params)
-    let ref = admin.database(new_db).ref(`planejamento/${ano}`);
-    ref.update(params).then(function(){
-      res.status(200).send(db_success)
-    }).catch(function(error) {
-      res.status(200).send(db_error(500))
-    });
+  let ref = admin.database(new_db).ref(`programacao`);
+  ref.once('value', (snapshot) => {
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.status(507).send()
+  }); 
+});
+
+app.post('/atualizar_programacao', (req, res) => {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  let programacao = req.body.programacao
+  let ref = admin.database(new_db).ref(`programacao/`);
+  ref.set(programacao).then(function(){
+    res.status(200).send(db_success)
+  }).catch(function(error) {
+    console.log(error)
+    res.status(507).send()
   });
 });
 
@@ -1546,10 +1593,11 @@ app.get('/pecas', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref(`pecas`);
   ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1568,7 +1616,7 @@ app.get('/romaneio_num_carga', (req, res) => {
     res.status(200).send({"carga": snapshot.val()});
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
@@ -1576,14 +1624,11 @@ app.get('/romaneio_cargas', (req, res) => {
   const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
   let ref = admin.database(new_db).ref(`romaneio`);
   ref.once('value', (snapshot) => {
-    if(snapshot.val() == null){
-      res.status(200).send(db_error(200));
-      return
-    }
-    res.status(200).send(snapshot.val());
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
   }, (errorObject) => {
     console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
+    res.status(507).send()
   }); 
 });
 
