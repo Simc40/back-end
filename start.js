@@ -15,7 +15,7 @@ const crypto = require('crypto');                                               
 const PORT = process.env.PORT || 3000;                                                     //Save the port number where your server will be listening
 
 
-const JSON_tipos_de_peca = require('./simc-iot-new-cliente.json')
+const JSON_new_client = require('./simc-iot-new-cliente.json')
 
 //Start Firebase-admin server
 const defaultApp = admin.initializeApp({
@@ -88,7 +88,7 @@ function myMiddleware (req, res, next) {
   }
   let user = sessions_map.get(req.sessionID)
   if(user == undefined){
-    res.send(session_error(150))
+    res.status(404).send()
     return
   }
   next()
@@ -100,16 +100,6 @@ app.use(myMiddleware)
 /*************************/
 /*Finished Server Configs*/
 /*************************/
-
-
-//ERROR HANDLING
-const db_success = {"name": "Successful", "code": 200}
-function session_error(num){
-  return {"name": "SessionError", "code": "A sessão Expirou.", "num":num}
-}
-function db_error(num){
-  return {"name": "FirebaseError", "code": "Internal Server Error", "num": num}
-}
 
 //Primary HTTP GET Method
 
@@ -157,7 +147,7 @@ let acessos_from_uid = {
 
 app.get('/check-session', (req, res) => {
   if(sessions_map.has(req.sessionID)){
-    let success = db_success
+    let success = {}
     success.user_name = sessions_map.get(req.sessionID).nome
     success.imgUrl = sessions_map.get(req.sessionID).imgUrl
     success.acesso = Object.keys(acessos).find(key => acessos[key] === sessions_map.get(req.sessionID).acesso);
@@ -166,7 +156,7 @@ app.get('/check-session', (req, res) => {
     res.status(200).send(success)
     return
   }
-  res.send(session_error(150))
+  res.status(404).send()
 });
 
 /*************************/
@@ -249,16 +239,6 @@ app.get('/logout', (req, res) => {
 /*************************/
 /****** USER INFO   ******/
 /*************************/
-
-app.get('/usuarios', (_req, res) => {
-  const ref = db.ref('usuarios');
-  ref.once('value', (snapshot) => {
-    res.status(200).send(snapshot.val());
-  }, (errorObject) => {
-    console.log('The read failed: ' + errorObject.name);
-    res.send(db_error(200))
-  }); 
-});
 
 app.get('/cliente_de_usuario', (req, res) => {
   try{
@@ -362,7 +342,6 @@ app.post('/set-cliente', (req, res) => {
 
   const ref = db.ref(`usuarios/${user.uid}`)
 
-  //ref.update({ 'cliente': uid_cliente })
   ref.update({ 'cliente': uid_cliente}).then(function(){
     user.cliente = cliente
     res.status(200).send()
@@ -371,7 +350,6 @@ app.post('/set-cliente', (req, res) => {
     res.status(507).send()
   });
   
-  //res.status(200).send("successful")
 });
 
 app.get('/clientes', (req, res) => {
@@ -413,7 +391,7 @@ app.get('/acessos', (_req, res) => {
       res.status(200).send(snapshot.val());
     }, (errorObject) => {
       console.log('The read failed: ' + errorObject.name);
-      res.send(db_error(200))
+      res.status(507).send();
     }); 
 });
 
@@ -430,30 +408,73 @@ app.post('/clientes_cadastrar', (req, res) => {
   const uuid = crypto.randomUUID()
   const history_uuid = crypto.randomUUID()
   Object.entries(req.body.params).forEach((child) => {
+    const new_bucket = defaultApp.storage().bucket(child[1].storage);
     let date = child[1].date
     delete child[1].date
     child[1].uid = uuid
-    let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
-    let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
-    
-    const new_db = get_database(child[1].database)
-    let ref = admin.database(new_db).ref();
-    ref.update(JSON_tipos_de_peca).then(function(){
-      void(0)
-    }).catch(function(error) {
-      console.log(error)
-      res.status(507).send()
-    });
+    if(!(child[1].image == undefined || child[1].image == null)){
+      let extension = convertBase64ToFile(child[1].image)
+      const filePath = "image." + extension;
+      const bucketName = new_bucket.name;
+      const destFileName = "logo/"+filePath;
 
-    ref = db.ref(`clientes/${uuid}`);
-    ref.update(params).then(function(){
+      async function uploadFile() {
+        await new_bucket.upload(filePath, {
+          destination: destFileName,
+          metadata: {      
+            // "custom" metadata:
+            metadata: {
+              firebaseStorageDownloadTokens: uuid, // Can technically be anything you want
+            },
+          }
+        })
+        delete child[1].image
+        child[1].logoUrl = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + encodeURIComponent(destFileName) + "?alt=media&token=" + uuid
+        let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
+        let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
+        
+        const new_db = get_database(child[1].database)
+        let ref = admin.database(new_db).ref();
+        ref.update(JSON_new_client).then(function(){
+          void(0)
+        }).catch(function(error) {
+          console.log(error)
+          res.status(507).send()
+        });
+  
+        ref = db.ref(`clientes/${uuid}`);
+        ref.update(params).then(function(){
+            void(0)
+        }).catch(function(error) {
+          console.log(error)
+          res.status(507).send()
+        });
+      }
+      uploadFile().catch(console.error);
+    }
+    else{
+      let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
+      let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
+      
+      const new_db = get_database(child[1].database)
+      let ref = admin.database(new_db).ref();
+      ref.update(JSON_new_client).then(function(){
         void(0)
-    }).catch(function(error) {
-      console.log(error)
-      res.status(507).send()
-    });
+      }).catch(function(error) {
+        console.log(error)
+        res.status(507).send()
+      });
+
+      ref = db.ref(`clientes/${uuid}`);
+      ref.update(params).then(function(){
+          void(0)
+      }).catch(function(error) {
+        console.log(error)
+        res.status(507).send()
+      });
+    }
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 app.post('/clientes_gerenciar', (req, res) => {
@@ -471,20 +492,20 @@ app.post('/clientes_gerenciar', (req, res) => {
     let params = child[1]
     let ref = db.ref(`clientes/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
     ref = db.ref(`clientes/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 /*************************/
@@ -517,7 +538,7 @@ app.post('/acessos_cadastrar', (req, res) => {
           let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
           let ref = db.ref(`usuarios/${uuid}`);
           ref.update(params).then(function(){
-              res.status(200).send(db_success)
+              res.status(200).send()
           }).catch(function(error) {
             console.log(error)
             res.status(507).send()
@@ -556,7 +577,7 @@ app.post('/acessos_cadastrar', (req, res) => {
       let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
       let ref = db.ref(`usuarios/${uuid}`);
       ref.update(params).then(function(){
-          res.status(200).send(db_success)
+          res.status(200).send()
       }).catch(function(error) {
         console.log(error)
         res.status(507).send()
@@ -576,20 +597,20 @@ app.post('/acessos_gerenciar', (req, res) => {
 
     let ref = db.ref(`usuarios/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
     ref = db.ref(`usuarios/${uid}`);
     ref.update(child[1]).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 })
 
 /*************************/
@@ -620,7 +641,7 @@ app.post('/obras_cadastrar', (req, res) => {
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`obras/${uuid}`);
     ref.update(params).then(function(){
-      res.status(200).send(db_success)
+      res.status(200).send()
     }).catch(function(error) {
       console.og(error)
       res.status(507).send()
@@ -641,20 +662,20 @@ app.post('/obras_gerenciar', (req, res) => {
     console.log(params)
     let ref = admin.database(new_db).ref(`obras/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
     ref = admin.database(new_db).ref(`obras/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 /*************************/
@@ -704,7 +725,7 @@ app.post('/tipos_de_peca_cadastrar', (req, res) => {
       let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
       let ref = admin.database(new_db).ref(`tipos_peca/${uuid}`);
       ref.update(params).then(function(){
-          res.status(200).send(db_success)
+          res.status(200).send()
       }).catch(function(error) {
         console.log(error)
         res.status(507).send()
@@ -735,20 +756,20 @@ app.post('/tipos_de_peca_gerenciar', (req, res) => {
     let history = {[history_uuid]: params}
     let ref = admin.database(new_db).ref(`tipos_peca/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
     ref = admin.database(new_db).ref(`tipos_peca/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 app.post('/tipos_de_peca_editar', (req, res) => {
@@ -788,15 +809,17 @@ app.post('/tipos_de_peca_editar', (req, res) => {
         history = {[history_uuid]: params}
         ref = admin.database(new_db).ref(`tipos_peca/${uid}/history`);
         ref.update(history).then(function(){
-          console.log('success1')
+          void(0)
         }).catch(function(error) {
-          res.status(200).send(db_error(500))
+          console.log(error)
+          res.status(200).send()
         });
         ref = admin.database(new_db).ref(`tipos_peca/${uid}`);
         ref.update(params).then(function(){
-          console.log('success2')
+          void(0)
         }).catch(function(error) {
-          res.status(200).send(db_error(500))
+          console.log(error)
+          res.status(200).send()
         });
       }
       uploadFile().catch(console.error);
@@ -805,19 +828,21 @@ app.post('/tipos_de_peca_editar', (req, res) => {
       ref = admin.database(new_db).ref(`tipos_peca/${uid}/history`);
       history = {[history_uuid]: params}
       ref.update(history).then(function(){
-        console.log('success1')
+        void(0)
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(200).send()
       });
       ref = admin.database(new_db).ref(`tipos_peca/${uid}`);
       ref.update(params).then(function(){
-        console.log('success2')
+        void(0)
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(200).send()
       });
     }
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 /*************************/
@@ -848,9 +873,10 @@ app.post('/transportadoras_cadastrar', (req, res) => {
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`transportadoras/${uuid}`);
     ref.update(params).then(function(){
-        res.status(200).send(db_success)
+        res.status(200).send()
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
 });
@@ -868,18 +894,20 @@ app.post('/transportadoras_gerenciar', (req, res) => {
     console.log(params)
     let ref = admin.database(new_db).ref(`transportadoras/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
     ref = admin.database(new_db).ref(`transportadoras/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 app.post('/transportadoras_veiculos_cadastrar', (req, res) => {
@@ -895,9 +923,10 @@ app.post('/transportadoras_veiculos_cadastrar', (req, res) => {
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/veiculos/${uuid}`);
     ref.update(params).then(function(){
-        res.status(200).send(db_success)
+        res.status(200).send()
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
 });
@@ -916,18 +945,20 @@ app.post('/transportadoras_veiculos_gerenciar', (req, res) => {
     console.log(params)
     let ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/veiculos/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
     ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/veiculos/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 
@@ -959,14 +990,16 @@ app.post('/transportadoras_motoristas_cadastrar', (req, res) => {
             },
           }
         })
+        delete child[1].image
         child[1].imgUrl = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + encodeURIComponent(destFileName) + "?alt=media&token=" + uuid
         history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
         let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
         ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
         ref.update(params).then(function(){
-          console.log('success2')
+          void(0)
         }).catch(function(error) {
-          res.status(200).send(db_error(500))
+          console.log(error)
+          res.status(200).send()
         });
       }
       uploadFile().catch(console.error);
@@ -976,13 +1009,14 @@ app.post('/transportadoras_motoristas_cadastrar', (req, res) => {
       let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
       ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
       ref.update(params).then(function(){
-        console.log('success2')
+        void(0)
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(200).send()
       });
     }
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 app.post('/transportadoras_motoristas_gerenciar', (req, res) => {
@@ -999,18 +1033,20 @@ app.post('/transportadoras_motoristas_gerenciar', (req, res) => {
     console.log(params)
     let ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
     ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 app.post('/transportadoras_motoristas_editar', (req, res) => {
@@ -1047,15 +1083,17 @@ app.post('/transportadoras_motoristas_editar', (req, res) => {
         let params = child[1]
         ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}/history`);
         ref.update(history).then(function(){
-          console.log('success1')
+          void(0)
         }).catch(function(error) {
-          res.status(200).send(db_error(500))
+          console.log(error)
+          res.status(200).send()
         });
         ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
         ref.update(params).then(function(){
-          console.log('success2')
+          void(0)
         }).catch(function(error) {
-          res.status(200).send(db_error(500))
+          console.log(error)
+          res.status(200).send()
         });
       }
       uploadFile().catch(console.error);
@@ -1065,19 +1103,21 @@ app.post('/transportadoras_motoristas_editar', (req, res) => {
       let params = child[1]
       ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}/history/${history_uuid}`);
       ref.update(history).then(function(){
-        console.log('success1')
+        void(0)
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(200).send()
       });
       ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
       ref.update(params).then(function(){
-        console.log('success2')
+        void(0)
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(200).send()
       });
     }
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 
@@ -1110,9 +1150,10 @@ app.post('/galpoes_cadastrar', (req, res) => {
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`galpoes/${uuid}`);
     ref.update(params).then(function(){
-        res.status(200).send(db_success)
+        res.status(200).send()
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
 });
@@ -1136,18 +1177,20 @@ app.post('/galpoes_gerenciar', (req, res) => {
     let history = {[history_uuid]: params}
     let ref = admin.database(new_db).ref(`galpoes/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
     ref = admin.database(new_db).ref(`galpoes/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 /*************************/
@@ -1177,7 +1220,7 @@ app.post('/formas_cadastrar', (req, res) => {
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`formas/${uuid}`);
     ref.update(params).then(function(){
-        res.status(200).send(db_success)
+        res.status(200).send()
     }).catch(function(error) {
         console.log(error)
         res.status(507).send()
@@ -1198,20 +1241,20 @@ app.post('/formas_gerenciar', (req, res) => {
     console.log(params)
     let ref = admin.database(new_db).ref(`formas/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
     ref = admin.database(new_db).ref(`formas/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 
@@ -1247,9 +1290,10 @@ app.post('/elementos_cadastrar', (req, res) => {
     let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`elementos/${obra}/${uuid}`);
     ref.update(params).then(function(){
-        res.status(200).send(db_success)
+        res.status(200).send()
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
 });
@@ -1269,18 +1313,20 @@ app.post('/elementos_gerenciar', (req, res) => {
     console.log(params)
     let ref = admin.database(new_db).ref(`elementos/${obra}/${uid}/history`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
     ref = admin.database(new_db).ref(`elementos/${obra}/${uid}`);
     ref.update(params).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 /*************************/
@@ -1310,20 +1356,20 @@ app.post('/checklist_post', (req, res) => {
     let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])}
     let ref = admin.database(new_db).ref(`checklist/history/${etapa}`);
     ref.update(history).then(function(){
-      console.log('success1')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
     ref = admin.database(new_db).ref(`checklist/${etapa}`);
     ref.set(history_uuid).then(function(){
-      console.log('success2')
+      void(0)
     }).catch(function(error) {
       console.log(error)
       res.status(507).send()
     });
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 /*************************/
@@ -1444,7 +1490,7 @@ app.post('/PDF_obras', fileUpload(), function (req, res) {
     }
     uploadFile().catch(console.error);
   }
-  res.status(200).send(db_success);
+  res.status(200).send();
 });
 
 app.post('/PDF_elementos', fileUpload(), function (req, res) {
@@ -1538,7 +1584,7 @@ app.post('/PDF_elementos', fileUpload(), function (req, res) {
     }
     uploadFile().catch(console.error);
   }
-  res.status(200).send(db_success);
+  res.status(200).send();
 });
 
 /*************************/
@@ -1578,7 +1624,7 @@ app.post('/atualizar_programacao', (req, res) => {
   let programacao = req.body.programacao
   let ref = admin.database(new_db).ref(`programacao/`);
   ref.set(programacao).then(function(){
-    res.status(200).send(db_success)
+    res.status(200).send()
   }).catch(function(error) {
     console.log(error)
     res.status(507).send()
@@ -1645,25 +1691,28 @@ app.post('/romaneio_post', (req, res) => {
     ref.update(params).then(function(){
       console.log("success1")
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
     ref = admin.database(new_db).ref(`romaneio/00num_carga`);
     ref.set(romaneio_carga).then(function(){
       console.log("success2")
     }).catch(function(error) {
-      res.status(200).send(db_error(500))
+      console.log(error)
+      res.status(200).send()
     });
     Object.entries(child[1].pecas).forEach((peca) => {
       ref = admin.database(new_db).ref(`pecas/${child[1].obra}/${peca[1].elemento}/${peca[0]}/romaneio`);
       ref.set(uuid).then(function(){
         console.log("success2")
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(200).send()
       });
     })
 
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 /*************************/
@@ -1703,9 +1752,10 @@ app.post('/acesso_cadastrar', (req, res) => {
         let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
         ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
         ref.update(params).then(function(){
-          console.log('success2')
+          void(0)
         }).catch(function(error) {
-          res.status(200).send(db_error(500))
+          console.log(error)
+          res.status(200).send()
         });
       }
       uploadFile().catch(console.error);
@@ -1715,19 +1765,20 @@ app.post('/acesso_cadastrar', (req, res) => {
       let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
       ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
       ref.update(params).then(function(){
-        console.log('success2')
+        void(0)
       }).catch(function(error) {
-        res.status(200).send(db_error(500))
+        console.log(error)
+        res.status(200).send()
       });
     }
   });
-  res.status(200).send(db_success)
+  res.status(200).send()
 });
 
 app.post('/forget_password', (req, res) => {
   let email = req.body.email
   firebaseAuth.sendPasswordResetEmail(auth, email, null).then(function() {
-    res.status(200).send(db_success)
+    res.status(200).send()
   })
   .catch(function(error) {
     // Error occurred. Inspect error.code.
