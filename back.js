@@ -56,8 +56,8 @@ app.use(express.json({ limit: '50mb' }));
 
 //Configure Cross-Origin Resource Sharing (CORS)
 const corsOptions ={
-    //origin: '*',
-    origin: 'http://localhost:8000', 
+    origin: '*',
+    //origin: 'http://localhost:8000', 
     credentials:true,                     //access-control-allow-credentials:true
     optionSuccessStatus:200
 }
@@ -217,7 +217,10 @@ app.post('/login', (req, res) => {
 
   }).catch((error) => {
       console.log(error)
-      if(error.name == "FirebaseError") {
+      if(error.code == "auth/network-request-failed"){
+        res.status(500).send()
+        return
+      }else if(error.code == "auth/wrong-password") {
         //User Login error
         res.status(401).send()
         return
@@ -519,7 +522,7 @@ app.post('/acessos_cadastrar', (req, res) => {
     return
   }
   const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
-  let uuid = crypto.randomUUID()
+  let uuid;
   const history_uuid = crypto.randomUUID()
   Object.entries(req.body.params).forEach((child) => {
     
@@ -529,6 +532,7 @@ app.post('/acessos_cadastrar', (req, res) => {
     firebaseAuth.createUserWithEmailAndPassword(auth, child[1].email, "newaccountsimc99")
     .then((userCredential) => {
       uuid = userCredential.user.uid
+      child[1].uid = uuid;
       firebaseAuth.sendPasswordResetEmail(auth, child[1].email, null)
       .then(function() {
         if(child[1].image != null && child[1].image != undefined && child[1].image != ""){
@@ -638,7 +642,7 @@ app.post('/obras_cadastrar', (req, res) => {
     let date = child[1].date
     delete child[1].date
     let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
-    let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
+    let params = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date, "createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`obras/${uuid}`);
     ref.update(params).then(function(){
       res.status(200).send()
@@ -658,7 +662,7 @@ app.post('/obras_gerenciar', (req, res) => {
     delete child[1].date
     const history_uuid = crypto.randomUUID()
     let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])}
-    let params = Object.assign({}, {"createdBy":user_uid, "creation":date}, child[1])
+    let params = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
     console.log(params)
     let ref = admin.database(new_db).ref(`obras/${uid}/history`);
     ref.update(history).then(function(){
@@ -1283,11 +1287,9 @@ app.post('/elementos_cadastrar', (req, res) => {
     let obra = child[0]
     let date = child[1].date
     delete child[1].date
-    delete child[1].obra
     child[1].numPecas = "0"
-    child[1].numPlanejado = "0"
     let history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
-    let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
+    let params = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date, "createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
     let ref = admin.database(new_db).ref(`elementos/${obra}/${uuid}`);
     ref.update(params).then(function(){
         res.status(200).send()
@@ -1353,7 +1355,7 @@ app.post('/checklist_post', (req, res) => {
     let date = child[1].date
     delete child[1].date
     const history_uuid = crypto.randomUUID()
-    let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])}
+    let history = {[history_uuid]: Object.assign({}, {"createdBy":user_uid, "creation":date}, child[1])}
     let ref = admin.database(new_db).ref(`checklist/history/${etapa}`);
     ref.update(history).then(function(){
       void(0)
@@ -1632,6 +1634,82 @@ app.post('/atualizar_programacao', (req, res) => {
 });
 
 /*************************/
+/*********  BIM  *********/
+/*************************/
+
+app.get('/BIM', (req, res) => {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  let ref = admin.database(new_db).ref(`BIM`);
+  ref.once('value', (snapshot) => {
+    if(snapshot.val() == null) res.status(404).send()
+    else{res.status(200).send(snapshot.val())}
+  }, (errorObject) => {
+    console.log('The read failed: ' + errorObject.name);
+    res.status(507).send()
+  }); 
+});
+
+app.post('/BIM_create_bucket', (req, res) => {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  const user_uid = sessions_map.get(req.sessionID).uid
+  let params = req.body.params
+  for(const uid_obra in params){
+    const request_form = params[uid_obra]
+    const date = request_form.date
+    delete request_form.date
+    const history_uuid = crypto.randomUUID()
+    const history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, request_form)
+    const firebase_object = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, request_form)
+    let ref = admin.database(new_db).ref(`BIM/${uid_obra}`);
+    ref.update(firebase_object).then(function(){
+      res.status(200).send()
+    }).catch(function(error) {
+      console.log(error)
+      res.status(507).send()
+    });
+  }
+});
+
+app.post('/BIM_create_object', (req, res) => {
+  const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+  const user_uid = sessions_map.get(req.sessionID).uid
+  let params = req.body.params
+  for(const uid_obra in params){
+    const request_form = params[uid_obra]
+    const date = request_form.date
+    delete request_form.date
+    const history_uuid = crypto.randomUUID()
+    const firebase_object = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, request_form)
+    let ref = admin.database(new_db).ref(`BIM/${uid_obra}`);
+    ref.once('value', (snapshot) => {
+      if(snapshot.val() == null) res.status(404).send()
+      else{
+
+        ref = admin.database(new_db).ref(`BIM/${uid_obra}/history/${history_uuid}`);
+        ref.update(firebase_object).then(function(){
+          res.status(200).send()
+        }).catch(function(error) {
+          console.log(error)
+          res.status(507).send()
+        });
+
+        ref = admin.database(new_db).ref(`BIM/${uid_obra}`);
+        ref.update(firebase_object).then(function(){
+          res.status(200).send()
+        }).catch(function(error) {
+          console.log(error)
+          res.status(507).send()
+        });
+      }
+    }, (errorObject) => {
+      console.log('The read failed: ' + errorObject.name);
+      res.status(507).send()
+    });  
+  }
+  res.status(200).send()
+});
+
+/*************************/
 /********  PEÇAS  ********/
 /*************************/
 
@@ -1718,62 +1796,6 @@ app.post('/romaneio_post', (req, res) => {
 /*************************/
 /******  ACESSOS  *******/
 /*************************/
-
-app.post('/acesso_cadastrar', (req, res) => {
-  const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
-  const new_db = db
-  let user_uid = sessions_map.get(req.sessionID).uid
-  const uuid = crypto.randomUUID()
-  const history_uuid = crypto.randomUUID()
-  let history
-  let ref
-  Object.entries(req.body.params).forEach((child) => {
-    let uid_transportadora = child[0]
-    let date = child[1].date
-    delete child[1].date
-    if(!(child[1].image == undefined || child[1].image == null)){
-      let extension = convertBase64ToFile(child[1].image)
-      const filePath = "image." + extension;
-      const bucketName = new_bucket.name;
-      const destFileName = "motoristas/"+uid_transportadora+"/"+uuid+"/"+filePath;
-
-      async function uploadFile() {
-        await new_bucket.upload(filePath, {
-          destination: destFileName,
-          metadata: {      
-            // "custom" metadata:
-            metadata: {
-              firebaseStorageDownloadTokens: uuid, // Can technically be anything you want
-            },
-          }
-        })
-        child[1].imgUrl = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + encodeURIComponent(destFileName) + "?alt=media&token=" + uuid
-        history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
-        let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
-        ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
-        ref.update(params).then(function(){
-          void(0)
-        }).catch(function(error) {
-          console.log(error)
-          res.status(200).send()
-        });
-      }
-      uploadFile().catch(console.error);
-    }
-    else{
-      history = Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])
-      let params = Object.assign({}, {"createdBy":user_uid, "creation":date, "history": {[history_uuid]: history}}, child[1])
-      ref = admin.database(new_db).ref(`transportadoras/${uid_transportadora}/motoristas/${uuid}`);
-      ref.update(params).then(function(){
-        void(0)
-      }).catch(function(error) {
-        console.log(error)
-        res.status(200).send()
-      });
-    }
-  });
-  res.status(200).send()
-});
 
 app.post('/forget_password', (req, res) => {
   let email = req.body.email
