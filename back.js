@@ -411,18 +411,17 @@ app.post('/clientes_cadastrar', (req, res) => {
   const uuid = crypto.randomUUID()
   const history_uuid = crypto.randomUUID()
   Object.entries(req.body.params).forEach((child) => {
-    const new_bucket = defaultApp.storage().bucket(child[1].storage);
     let date = child[1].date
     delete child[1].date
     child[1].uid = uuid
     if(!(child[1].image == undefined || child[1].image == null)){
       let extension = convertBase64ToFile(child[1].image)
       const filePath = "image." + extension;
-      const bucketName = new_bucket.name;
+      const bucketName = db.name;
       const destFileName = "logo/"+filePath;
 
       async function uploadFile() {
-        await new_bucket.upload(filePath, {
+        await db.upload(filePath, {
           destination: destFileName,
           metadata: {      
             // "custom" metadata:
@@ -521,7 +520,7 @@ app.post('/acessos_cadastrar', (req, res) => {
     res.status(403).send();
     return
   }
-  const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
+  const new_bucket = defaultApp.storage().bucket();
   let uuid;
   const history_uuid = crypto.randomUUID()
   Object.entries(req.body.params).forEach((child) => {
@@ -616,6 +615,75 @@ app.post('/acessos_gerenciar', (req, res) => {
   });
   res.status(200).send()
 })
+
+app.post('/acessos_editar', (req, res) => {
+  let user_uid = sessions_map.get(req.sessionID).uid;
+  const new_bucket = defaultApp.storage().bucket();
+
+  Object.entries(req.body.params).forEach((child) => {
+    let uid = child[0];
+    const uuid = uid;
+    let date = child[1].date;
+    delete child[1].date;
+    const history_uuid = crypto.randomUUID();
+    if(child[1].image != null && child[1].image != undefined && child[1].image != ""){
+      uploadFile().catch(console.error);
+    }else{
+      let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])};
+      let ref = db.ref(`usuarios/${uid}/history`);
+      ref.update(history).then(function(){
+        void(0);
+      }).catch(function(error) {
+        console.log(error);
+        res.status(507).send();
+      });
+      ref = db.ref(`usuarios/${uid}`);
+      ref.update(child[1]).then(function(){
+        void(0);
+      }).catch(function(error) {
+        console.log(error);
+        res.status(507).send();
+      });
+    } 
+
+
+    async function uploadFile() {
+      let extension = convertBase64ToFile(child[1].image)
+      let filePath = "image." + extension;
+      let destFileName = "profiles/"+uuid+"/"+filePath;
+      delete child[1].image
+      const bucketName = new_bucket.name;
+      await new_bucket.upload(filePath, {
+        destination: destFileName,
+        metadata: {      
+          // "custom" metadata:
+          metadata: {
+            firebaseStorageDownloadTokens: uuid, // Can technically be anything you want
+          },
+        }
+      })
+      child[1].imgUrl = "https://firebasestorage.googleapis.com/v0/b/" + bucketName + "/o/" + encodeURIComponent(destFileName) + "?alt=media&token=" + uuid
+      console.log(`${filePath} uploaded to ${bucketName}`);
+      let history = {[history_uuid]: Object.assign({}, {"lastModifiedBy":user_uid, "lastModifiedOn":date}, child[1])};
+      let ref = db.ref(`usuarios/${uid}/history`);
+      ref.update(history).then(function(){
+        void(0);
+      }).catch(function(error) {
+        console.log(error);
+        res.status(507).send();
+      });
+      ref = db.ref(`usuarios/${uid}`);
+      ref.update(child[1]).then(function(){
+        void(0);
+      }).catch(function(error) {
+        console.log(error);
+        res.status(507).send();
+      });
+    }
+  });
+  res.status(200).send();
+});
+
 
 /*************************/
 /******    OBRAS    ******/
