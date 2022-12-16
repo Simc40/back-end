@@ -20,7 +20,7 @@ module.exports = function (app, sessions_map, get_database) {
     app.post('/obras_cadastrar', (req, res) => {
         const user_uid = sessions_map.get(req.sessionID).uid
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const obra = new Obra(undefined, req.body.params.cadastrar, user_uid, true, false)
+        const obra = new Obra(undefined, req.body.params, user_uid, true, false)
         uploadInRealTimeDatabase(new_db, `obras/${obra.uid}`, obra.firebaseObj, false)
         .then(() =>{
             res.status(200).send()

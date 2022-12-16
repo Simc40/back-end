@@ -9,7 +9,7 @@ module.exports = function(app, defaultApp, sessions_map, get_database){
         const user_uid = sessions_map.get(req.sessionID).uid
         const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const motorista = new Motorista(undefined, req.body.params.cadastrar, user_uid, "motoristas/", "imgUrl", new_bucket, true, false);
+        const motorista = new Motorista(undefined, req.body.params, user_uid, "motoristas/", "imgUrl", new_bucket, true, false);
         new Promise ((resolve, reject) => {
             if(motorista.hasImage()){
                 uploadFile(new_bucket, motorista.uid, motorista.image)

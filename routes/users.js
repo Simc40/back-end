@@ -9,7 +9,7 @@ module.exports = function(app, defaultApp, db, sessions_map){
     
     app.post('/acessos_cadastrar', (req, res) => {
         const user_uid = sessions_map.get(req.sessionID).uid;
-        const newUserEmail = req.body.params.cadastrar.email;
+        const newUserEmail = req.body.params.email;
         if (sessions_map.get(req.sessionID).acesso == acessos.usuario) {
             res.status(403).send();
             return;
@@ -18,7 +18,7 @@ module.exports = function(app, defaultApp, db, sessions_map){
         firebaseAuth.createUserWithEmailAndPassword(auth, newUserEmail, "newaccountsimc99")
         .then((userCredential) => {
             if(userCredential == undefined) throw Error("createUserWithEmailAndPassword failed");
-            return new User(userCredential.user.uid, req.body.params.cadastrar, user_uid, "profiles/", "imgUrl", dbucket, true, false);
+            return new User(userCredential.user.uid, req.body.params, user_uid, "profiles/", "imgUrl", dbucket, true, false);
         })
         .then((user) => {
             firebaseAuth.sendPasswordResetEmail(auth, user.firebaseObj.email, null)

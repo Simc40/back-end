@@ -49,9 +49,6 @@ module.exports = function(app, defaultApp, sessions_map, get_database){
                 else if (pdfElemento.activity == "status"){
                     uploadInRealTimeDatabase(new_db, `PDF_elementos/${pdfElemento.uidObra}/${pdfElemento.uidElemento}/${pdfElemento.uid}/history/${pdfElemento.history_uuid}`, pdfElemento.firebaseObj, false)
                     .then(uploadInRealTimeDatabase(new_db, `PDF_elementos/${pdfElemento.uidObra}/${pdfElemento.uidElemento}/${pdfElemento.uid}`, pdfElemento.firebaseObj, false))
-                    .then(() => {
-                        if(pdfElemento.status == "ativo") setInRealTimeDatabase(new_db, `PDF_elementos/${pdfElemento.uidObra}/${pdfElemento.uidElemento}/ativo`, pdfElemento.uid, false)
-                    })
                     .then(resolve)
                     .catch((e) => {
                         console.log(e);
@@ -62,9 +59,6 @@ module.exports = function(app, defaultApp, sessions_map, get_database){
                     pdfElemento.setCreation();
                     uploadPDF(new_bucket, pdfElemento.uid, pdfElemento.pdf)
                     .then(uploadInRealTimeDatabase(new_db, `PDF_elementos/${pdfElemento.uidObra}/${pdfElemento.uidElemento}/${pdfElemento.uid}`, pdfElemento.firebaseObj, false))
-                    .then(() => {
-                        if(pdfElemento.status == "ativo") setInRealTimeDatabase(new_db, `PDF_elementos/${pdfElemento.uidObra}/${pdfElemento.uidElemento}/ativo`, pdfElemento.uid, false)
-                    })
                     .then(resolve)
                     .catch((e) => {
                         console.log(e);

@@ -28,8 +28,10 @@ module.exports = function (app, defaultApp, db, sessions_map, get_database) {
             res.status(403).send();
             return
         }
-        const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
-        let cliente = new Cliente(undefined, req.body.params.cadastrar, user_uid, "logo/", "logoUrl", new_bucket, true, false);
+        const new_bucket = defaultApp.storage().bucket(req.body.params.storage);
+        console.log(req.body.params.storage)
+        console.log(new_bucket)
+        let cliente = new Cliente(undefined, req.body.params, user_uid, "logo/", "logoUrl", new_bucket, true, false);
         const new_db = get_database(cliente.firebaseObj.database);
         new Promise ((resolve, reject) => {
             if(cliente.hasImage()){
@@ -61,7 +63,9 @@ module.exports = function (app, defaultApp, db, sessions_map, get_database) {
             return
         }
         let promises = [];
+        console.log(req.body.params)
         Object.entries(req.body.params).forEach((child) => {
+            console.log(child)
             let cliente = new Cliente(child[0], child[1], user_uid, undefined, undefined, undefined, false, true);
             let p = new Promise((resolve, reject) => {
                 uploadInRealTimeDatabase(db, `clientes/${cliente.uid}`, cliente.firebaseObj, true)
@@ -89,8 +93,9 @@ module.exports = function (app, defaultApp, db, sessions_map, get_database) {
             return
         }
         let cliente
-        const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
+        let new_bucket;
         Object.entries(req.body.params).forEach((child) => {
+            new_bucket = defaultApp.storage().bucket(child[1].storage);
             cliente = new Cliente(child[0], child[1], user_uid, "logo/", "logoUrl", new_bucket, false, true);
         });
         new Promise ((resolve, reject) => {

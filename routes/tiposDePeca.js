@@ -21,7 +21,7 @@ module.exports = function(app, defaultApp, sessions_map, get_database){
         const user_uid = sessions_map.get(req.sessionID).uid
         const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const tipoDePeca = new TipoDePeca(undefined, req.body.params.cadastrar, user_uid, "tipos_peca/", "imgUrl", new_bucket, true, false);
+        const tipoDePeca = new TipoDePeca(undefined, req.body.params, user_uid, "tipos_peca/", "imgUrl", new_bucket, true, false);
         new Promise ((resolve, reject) => {
             if(tipoDePeca.hasImage()){
                 uploadFile(new_bucket, tipoDePeca.uid, tipoDePeca.image)

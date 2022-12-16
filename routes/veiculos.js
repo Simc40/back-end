@@ -6,7 +6,7 @@ module.exports = function(app, sessions_map, get_database){
     app.post('/transportadoras_veiculos_cadastrar', (req, res) => {
         const user_uid = sessions_map.get(req.sessionID).uid
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const veiculo = new Veiculo(undefined, req.body.params.cadastrar, user_uid, true, false)
+        const veiculo = new Veiculo(undefined, req.body.params, user_uid, true, false)
         uploadInRealTimeDatabase(new_db, `transportadoras/${veiculo.uidTransportadora}/veiculos/${veiculo.uid}`, veiculo.firebaseObj, false)
         .then(() =>{
             res.status(200).send()

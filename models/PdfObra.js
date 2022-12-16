@@ -24,6 +24,7 @@ class PdfObra{
     }
 
     setCreation(){
+        this.firebaseObj.uid = this.uid;
         this.firebaseObj.creation = this.date;
         this.firebaseObj.createdBy = this.userId;
         this.firebaseObj = Object.assign({}, {"history": { [this.history_uuid]: this.firebaseObj } }, this.firebaseObj);

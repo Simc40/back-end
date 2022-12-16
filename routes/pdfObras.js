@@ -18,7 +18,7 @@ module.exports = function(app, defaultApp, sessions_map, get_database){
         });
     });
 
-app.post('/PDF_obras', fileUpload(), function (req, res) {
+    app.post('/PDF_obras', fileUpload(), function (req, res) {
         const user_uid = sessions_map.get(req.sessionID).uid
         const new_bucket = defaultApp.storage().bucket(sessions_map.get(req.sessionID).cliente.storage);
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
@@ -26,7 +26,6 @@ app.post('/PDF_obras', fileUpload(), function (req, res) {
         const obra = req.body.formData_obra
         const date = req.body.formData_date
         let promises = [];
-        console.log("HHello: " + form_size);
         for (let i = 1; i <= form_size; i++) {
             const params = JSON.parse(req.body[`formData_${i}`])
             const pdfObra = new PdfObra(params.uid, obra, date, params, user_uid, "PDF/", (req.files != null && req.files != undefined) ? req.files[`uploadedFile_${i}`] : undefined, new_bucket)
@@ -51,9 +50,9 @@ app.post('/PDF_obras', fileUpload(), function (req, res) {
                 else if (pdfObra.activity == "status"){
                     uploadInRealTimeDatabase(new_db, `PDF/${pdfObra.uidObra}/${pdfObra.uid}/history/${pdfObra.history_uuid}`, pdfObra.firebaseObj, false)
                     .then(uploadInRealTimeDatabase(new_db, `PDF/${pdfObra.uidObra}/${pdfObra.uid}`, pdfObra.firebaseObj, false))
-                    .then(() => {
-                        if(pdfObra.status == "ativo") setInRealTimeDatabase(new_db, `PDF/${pdfObra.uidObra}/ativo`, pdfObra.uid, false)
-                    })
+                    // .then(() => {
+                    //     if(pdfObra.status == "ativo") setInRealTimeDatabase(new_db, `PDF/${pdfObra.uidObra}/ativo`, pdfObra.uid, false)
+                    // })
                     .then(resolve)
                     .catch((e) => {
                         console.log(e);
@@ -64,9 +63,9 @@ app.post('/PDF_obras', fileUpload(), function (req, res) {
                     pdfObra.setCreation();
                     uploadPDF(new_bucket, pdfObra.uid, pdfObra.pdf)
                     .then(uploadInRealTimeDatabase(new_db, `PDF/${pdfObra.uidObra}/${pdfObra.uid}`, pdfObra.firebaseObj, false))
-                    .then(() => {
-                        if(pdfObra.status == "ativo") setInRealTimeDatabase(new_db, `PDF/${pdfObra.uidObra}/ativo`, pdfObra.uid, false)
-                    })
+                    // .then(() => {
+                    //     if(pdfObra.status == "ativo") setInRealTimeDatabase(new_db, `PDF/${pdfObra.uidObra}/ativo`, pdfObra.uid, false)
+                    // })
                     .then(resolve)
                     .catch((e) => {
                         console.log(e);

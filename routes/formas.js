@@ -20,7 +20,7 @@ module.exports = function (app, sessions_map, get_database) {
     app.post('/formas_cadastrar', (req, res) => {
         const user_uid = sessions_map.get(req.sessionID).uid
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const forma = new Forma(undefined, req.body.params.cadastrar, user_uid, true, false)
+        const forma = new Forma(undefined, req.body.params, user_uid, true, false)
         uploadInRealTimeDatabase(new_db, `formas/${forma.uid}`, forma.firebaseObj, false)
         .then(() =>{
             res.status(200).send()

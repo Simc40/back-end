@@ -20,7 +20,7 @@ module.exports = function (app, sessions_map, get_database) {
     app.post('/galpoes_cadastrar', (req, res) => {
         let user_uid = sessions_map.get(req.sessionID).uid
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const galpao = new Galpao(undefined, req.body.params.cadastrar, user_uid, true, false)
+        const galpao = new Galpao(undefined, req.body.params, user_uid, true, false)
         uploadInRealTimeDatabase(new_db, `galpoes/${galpao.uid}`, galpao.firebaseObj, false)
         .then(() =>{
             res.status(200).send()

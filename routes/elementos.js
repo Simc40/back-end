@@ -20,10 +20,8 @@ module.exports = function (app, sessions_map, get_database) {
     app.post('/elementos_cadastrar', (req, res) => {
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
         let user_uid = sessions_map.get(req.sessionID).uid
-        let elemento;
-        Object.entries(req.body.params).forEach((child) => {
-            elemento = new Elemento(child[1].obra, undefined, child[1], user_uid, true, false);
-        });
+        let elemento = new Elemento(req.body.params.obra, undefined, req.body.params, user_uid, true, false);
+
         uploadInRealTimeDatabase(new_db, `elementos/${elemento.uidObra}/${elemento.uid}`, elemento.firebaseObj, false)
         .then(()=>{
             res.status(200).send();

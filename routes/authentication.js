@@ -16,7 +16,7 @@ module.exports = function(app, db, sessions_map){
         .then((getClientInfo))
         .then((saveUserInSession))
         .then((resStatus) => {
-            res.status(resStatus).send();
+            res.status(resStatus).send({'token': req.sessionID});
         })
         .catch((error) => {
             console.log(error);
@@ -32,6 +32,7 @@ module.exports = function(app, db, sessions_map){
                 const ref = db.ref(`usuarios/${uid}`);
                 ref.once('value')
                 .then(function (snapshot) {
+                    console.log(snapshot.val())
                     if (snapshot.val() == null) reject(CustomException("Usuário não encontrado no FirebaseDatabase", 507));
                     const snapshotResult = snapshot.val();
                     const user = {
@@ -43,7 +44,6 @@ module.exports = function(app, db, sessions_map){
                         "acessos_atividades" : snapshotResult.acessos_atividades
                     }
                     for (const [key, value] of Object.entries(user)) if (key != "imgUrl") if(value == undefined || value == null || value == "") reject(CustomException("O valor de " + key + " não foi enontrado no usuário " + user.uid, 507));
-                    console.log("for loop")
                     resolve(user);
                 })
                 .catch((error) => {
@@ -100,13 +100,13 @@ module.exports = function(app, db, sessions_map){
             res.status(403).send();
             return
         }
-        const cliente = { 
+        const cliente = (req.body.client == undefined) ? { 
             "uid": req.body.uid,
             "database": req.body.database,
             "nome": req.body.nome,
             "storage": req.body.storage,
             "logo": req.body.logoUrl 
-        }
+        } : req.body.client
         let user = sessions_map.get(req.sessionID)
         user.database = cliente.database
         const ref = db.ref(`usuarios/${user.uid}`)
@@ -125,6 +125,6 @@ module.exports = function(app, db, sessions_map){
         } catch (error) {
             console.log(error)
         }
-        res.send("Logout")
+        res.status(200).send("Logout")
     });
 }
