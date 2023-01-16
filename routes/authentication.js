@@ -32,7 +32,6 @@ module.exports = function(app, db, sessions_map){
                 const ref = db.ref(`usuarios/${uid}`);
                 ref.once('value')
                 .then(function (snapshot) {
-                    console.log(snapshot.val())
                     if (snapshot.val() == null) reject(CustomException("Usuário não encontrado no FirebaseDatabase", 507));
                     const snapshotResult = snapshot.val();
                     const user = {

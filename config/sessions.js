@@ -15,8 +15,12 @@ let sessions_map = new Map();                                             // Has
 function sessionTokenMiddleware (req, res, next) {
     let url = req._parsedUrl.pathname
     console.log(url+"\n"+req.sessionID)
-    let permitedUrls = ["/", "/login", "/check-session","/logout", "/forget_password"]
+    let permitedUrls = ["/", "/login", "/check-session","/logout", "/forget_password", "/api/auth/token", "/api/models"]
     if(permitedUrls.includes(url)){
+      next()
+      return
+    }
+    if(url.startsWith("/api/models/")){
       next()
       return
     }

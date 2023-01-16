@@ -32,6 +32,30 @@ module.exports = function (app, sessions_map, get_database) {
         })
     });
 
+    app.post('/elementos_cadastrar_all', (req, res) => {
+        const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+        let user_uid = sessions_map.get(req.sessionID).uid
+        let promises = [];
+        Array.from(req.body.params).forEach((value) => {
+            const elemento = new Elemento(value.obra, value.uid, value, user_uid, true, false);
+            let p = new Promise((resolve, reject) => {
+                uploadInRealTimeDatabase(new_db,  `elementos/${elemento.uidObra}/${elemento.uid}`, elemento.firebaseObj, false)
+                .then(resolve)
+                .catch((e) => {
+                    reject(e)
+                })
+            })
+            promises.push(p);
+        })
+        Promise.all(promises)
+        .then(() => {
+            res.status(200).send();
+        }).catch((e) => {
+            console.log(e);
+            res.status(507).send();
+        })
+    });
+
     app.put('/elementos_gerenciar', (req, res) => {
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
         let user_uid = sessions_map.get(req.sessionID).uid

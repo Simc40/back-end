@@ -35,7 +35,7 @@ module.exports = function (app, sessions_map, get_database) {
     app.post('/romaneio_post', (req, res) => {
         const user_uid = sessions_map.get(req.sessionID).uid
         const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const romaneio = new Romaneio(undefined, req.body.params.romaneio, user_uid, true, false)
+        const romaneio = new Romaneio(undefined, req.body.params, user_uid, true, false)
         uploadInRealTimeDatabase(new_db, `romaneio/${romaneio.uid}`, romaneio.firebaseObj, false)
         .then(setInRealTimeDatabase(new_db, `romaneio/00num_carga`, romaneio.numCarga, false))
         .then(updateRomaneioPecas(new_db, romaneio))
