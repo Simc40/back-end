@@ -1,22 +1,24 @@
-const formidable = require('express-formidable');
-const { BIM } = require('../models/BIM.js');
-const { listObjects, uploadObject, translateObject, getManifest, urnify, deleteObject } = require('../services/aps.js');
+const formidable = require("express-formidable");
+const { BIM } = require("../models/BIM.js");
+const { listObjects, uploadObject, translateObject, getManifest, urnify, deleteObject } = require("../services/aps.js");
 const { uploadInRealTimeDatabase, removeInRealTimeDatabase, setInRealTimeDatabase } = require("../models/firebaseDatabase");
 
-module.exports = function(app, sessions_map, get_database){
-    app.get('/api/models', async function (req, res, next) {
+module.exports = function (app, sessions_map, get_database) {
+    app.get("/api/models", async function (req, res, next) {
         try {
             const objects = await listObjects();
-            res.json(objects.map(o => ({
-                name: o.objectKey,
-                urn: urnify(o.objectId)
-            })));
+            res.json(
+                objects.map((o) => ({
+                    name: o.objectKey,
+                    urn: urnify(o.objectId),
+                }))
+            );
         } catch (err) {
             next(err);
         }
     });
-    
-    app.get('/api/models/:urn/status', async function (req, res, next) {
+
+    app.get("/api/models/:urn/status", async function (req, res, next) {
         try {
             const manifest = await getManifest(req.params.urn);
             if (manifest) {
@@ -33,14 +35,14 @@ module.exports = function(app, sessions_map, get_database){
                 }
                 res.json({ status: manifest.status, progress: manifest.progress, messages });
             } else {
-                res.json({ status: 'n/a' });
+                res.json({ status: "n/a" });
             }
         } catch (err) {
             next(err);
         }
     });
-    
-    app.post('/api/models', formidable(), async function (req, res, next) {
+
+    app.post("/api/models", formidable(), async function (req, res, next) {
         // const file = req.files['model-file'];
         // if (!file) {
         //     res.status(400).send('The required field ("model-file") is missing.');
@@ -65,32 +67,49 @@ module.exports = function(app, sessions_map, get_database){
         const uploadObjectInForge = async (file, name) => {
             try {
                 const obj = await uploadObject(name, file.path);
-                await translateObject(urnify(obj.objectId), req.fields['model-zip-entrypoint']);
+                await translateObject(urnify(obj.objectId), req.fields["model-zip-entrypoint"]);
                 return {
                     name: obj.objectKey,
-                    urn: urnify(obj.objectId)
+                    urn: urnify(obj.objectId),
                 };
             } catch (err) {
                 next(err);
             }
-        }
-        const user_uid = sessions_map.get(req.sessionID).uid
-        const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
-        const form_size = req.fields.formData_size
-        const obra = req.fields.formData_obra
-        const date = req.fields.formData_date
+        };
+        const user_uid = sessions_map.get(req.sessionID).uid;
+        const new_db = get_database(sessions_map.get(req.sessionID).cliente.database);
+        const form_size = req.fields.formData_size;
+        const obra = req.fields.formData_obra;
+        const date = req.fields.formData_date;
         let promises = [];
         for (let i = 1; i <= form_size; i++) {
-            const params = JSON.parse(req.fields[`formData_${i}`])
-            if(params.activity === "RVT"){
+            const params = JSON.parse(req.fields[`formData_${i}`]);
+            if (params.activity === "RVT") {
                 const file = req.files[`uploadedFile_${i}`];
                 const forge_name = obra + "-" + file.name;
                 let p = new Promise((resolve, reject) => {
                     uploadObjectInForge(file, forge_name)
-                    .then((translate) => new BIM(translate.urn, forge_name, params, user_uid, date, true, false))
-                    .then((bim) => uploadInRealTimeDatabase(new_db, `BIM/${bim.uidObra}/${bim.uid}`, bim.firebaseObj, false))
-                    .then(resolve)
-                    .catch(reject)
+                        .then((translate) => new BIM(translate.urn, forge_name, params, user_uid, date, true, false))
+                        .then((bim) => uploadInRealTimeDatabase(new_db, `BIM/${bim.uidObra}/${bim.uid}`, bim.firebaseObj, false))
+                        .then(resolve)
+                        .catch(reject);
+                });
+                promises.push(p);
+            } else if (params.activity === "remove") {
+                const uid = params.uid;
+                const forge_name = params.nome_rvt;
+                let p = new Promise((resolve, reject) => {
+                    deleteObject(obra + "-" + forge_name)
+                        .then(() => removeInRealTimeDatabase(new_db, `BIM/${obra}/${uid}`))
+                        .then(resolve)
+                        .catch(reject);
+                });
+                promises.push(p);
+            } else if (params.activity === "status") {
+                const uid = params.uid;
+                const status = params.status;
+                let p = new Promise((resolve, reject) => {
+                    setInRealTimeDatabase(new_db, `BIM/${obra}/${uid}/status`, status, false).then(resolve).catch(reject);
                 });
                 promises.push(p);
             }
@@ -140,15 +159,16 @@ module.exports = function(app, sessions_map, get_database){
             // promises.push(p);
         }
         Promise.all(promises)
-        .then(() => {
-            res.status(200).send();
-        }).catch((e) => {
-            console.log(e);
-            res.status(507).send();
-        })
+            .then(() => {
+                res.status(200).send();
+            })
+            .catch((e) => {
+                console.log(e);
+                res.status(507).send();
+            });
     });
 
-    app.delete('/api/models/delete/:name', async function (req, res, next) {
+    app.delete("/api/models/delete/:name", async function (req, res, next) {
         try {
             await deleteObject(req.params.name);
             res.status(200).send();
@@ -156,4 +176,4 @@ module.exports = function(app, sessions_map, get_database){
             res.status(404).send();
         }
     });
-}
+};
