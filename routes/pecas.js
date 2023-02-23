@@ -38,6 +38,27 @@ module.exports = function (app, sessions_map, get_database) {
             promises.push(p);
         });
 
+        let getPiecesObra = new Promise((resolve, reject) => {
+            let ref = admin.database(new_db).ref(`obras/${obra}/pecas_registradas`);
+            ref.once('value', (snapshot) => {
+                if (snapshot.val() == null) reject();
+                else { resolve(snapshot.val()) }
+            }, (errorObject) => {
+                console.log(errorObject)
+                reject()
+            });
+        })
+
+        function uploadObraPieces(numPieces){
+            return new Promise((resolve, reject) => {
+                setInRealTimeDatabase(new_db, `obras/${obra}/pecas_registradas`, numPieces, false)
+                .then(resolve)
+                .catch((e) => {
+                    reject(e)
+                })
+            })
+        }
+
         const elementPromisesFunction = () => {
             let elementsPromises = []
             Object.entries(elements).forEach((element) => {
@@ -58,7 +79,13 @@ module.exports = function (app, sessions_map, get_database) {
         .then((elementPromises) => {
             Promise.all(elementPromises)
             .then(() => {
-                return;
+                getPiecesObra
+                .then((numPieces) => {
+                    const intNumPieces = parseInt(numPieces);
+                    const finalNumPieces = intNumPieces + promises.length;
+                    return finalNumPieces.toString();
+                })
+                .then(uploadObraPieces)
             })
         })
         .then(() => {

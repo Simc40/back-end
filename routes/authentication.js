@@ -63,7 +63,8 @@ module.exports = function(app, db, sessions_map){
                         "database": snapshotResult.database,
                         "uid": snapshotResult.uid,
                         "nome": snapshotResult.nome,
-                        "logo": snapshotResult.logoUrl 
+                        "logo": snapshotResult.logoUrl,
+                        "acronimo": snapshotResult.acronimo
                     }
                     for (const [key, value] of Object.entries(cliente)) if (key != "logo") if(value == undefined || value == null || value == "") reject(CustomException("O valor de " + key + " não foi enontrado no cliente " + user.cliente, 507));
                     user.cliente = cliente;
