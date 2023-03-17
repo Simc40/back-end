@@ -21,6 +21,10 @@ class Elemento{
         }
         this.firebaseObj = attr;
     }
+
+    toString = function () {
+        return this.firebaseObj;
+    };
 }
 
 module.exports = {Elemento};

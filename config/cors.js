@@ -1,7 +1,7 @@
 //Configure Cross-Origin Resource Sharing (CORS)
 const corsOptions = {
   origin: "*",
-  // origin: [
+  // origin: [ 
   //   "http://localhost:8000",
   //   "http://localhost:8001",
   //   "http://192.168.0.2:8000",

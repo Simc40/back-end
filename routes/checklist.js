@@ -24,8 +24,8 @@ module.exports = function (app, sessions_map, get_database) {
         Object.entries(req.body.params).forEach((child) => {
             const checklist = new Checklist(child[0], child[1], user_uid);
             let p = new Promise((resolve, reject) => {
-                uploadInRealTimeDatabase(new_db, `checklist/history/${checklist.etapa}/${checklist.history_uuid}`, checklist.firebaseObj, false)
-                .then(setInRealTimeDatabase(new_db, `checklist/${checklist.etapa}`, checklist.history_uuid, false))
+                uploadInRealTimeDatabase(new_db, `obras/${checklist.obra}/checklist/history/${checklist.etapa}/${checklist.history_uuid}`, checklist.firebaseObj, false)
+                .then(setInRealTimeDatabase(new_db, `obras/${checklist.obra}/checklist/${checklist.etapa}`, checklist.history_uuid, false))
                 .then(resolve)
                 .catch((e) => {
                     reject(e)
