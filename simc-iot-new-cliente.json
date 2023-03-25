@@ -99,6 +99,17 @@
       "status": "inativo"
     }
   },
+  "tipos_de_construcao": {
+    "Conjunto": "",
+    "Escola": "",
+    "Galpão": "",
+    "Hospital": "",
+    "Metrô": "",
+    "Passarela": "",
+    "Ponte": "",
+    "Prédio": "",
+    "Residência": ""
+  },
   "checklist":{
     "armacao": "45295602-b4e6-4baf-a855-539bd4f3ea89",
     "armacaoForma": "11e5a2d5-3c7c-4efd-81b3-fd3edca7d49d",

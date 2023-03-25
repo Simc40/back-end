@@ -1,7 +1,7 @@
 
 const admin = require("firebase-admin");                              
 const { Obra } = require('../models/Obra');
-const { uploadInRealTimeDatabase } = require('../models/firebaseDatabase');
+const { uploadInRealTimeDatabase, setInRealTimeDatabase, removeInRealTimeDatabase } = require('../models/firebaseDatabase');
 
 module.exports = function (app, sessions_map, get_database) {
 
@@ -53,6 +53,42 @@ module.exports = function (app, sessions_map, get_database) {
         }).catch((e) => {
             console.log(e);
             res.status(507).send();
+        })
+    });
+
+    app.get('/tipos_de_construcao', (req, res) => {
+        const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+        let ref = admin.database(new_db).ref('tipos_de_construcao');
+        ref.once('value', (snapshot) => {
+            if (snapshot.val() == null) res.status(200).send({})
+            else { res.status(200).send(snapshot.val()) }
+        }, (errorObject) => {
+            console.log('The read failed: ' + errorObject.name);
+            res.status(507).send()
+        });
+    });
+
+    app.post('/adicionar_tipo_construcao', (req, res) => {
+        const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+        setInRealTimeDatabase(new_db, `tipos_de_construcao/${req.body.params}`, "", false)
+        .then(() =>{
+            res.status(200).send()
+        })
+        .catch((e) => {
+            console.log(e)
+            res.status(507).send()
+        })
+    });
+
+    app.post('/remover_tipo_construcao', (req, res) => {
+        const new_db = get_database(sessions_map.get(req.sessionID).cliente.database)
+        removeInRealTimeDatabase(new_db, `tipos_de_construcao/${req.body.params}`)
+        .then(() =>{
+            res.status(200).send()
+        })
+        .catch((e) => {
+            console.log(e)
+            res.status(507).send()
         })
     });
 }
